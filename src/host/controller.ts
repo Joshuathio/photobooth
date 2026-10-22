@@ -1,11 +1,15 @@
 import QRCode from 'qrcode';
 import { Camera } from '../booth/camera';
 import {
+  buildAllSheet,
+  printForBig,
+  buildBigPrint,
   buildGif,
   buildSheet,
   buildStory,
   buildStrip,
   ensureFonts,
+  shotThumbnail,
   stripThumbnail,
   toJpeg,
 } from '../booth/compose';
@@ -18,7 +22,7 @@ import { galleryLink, publicId, uploadUnsigned, type AssetKey } from '../shared/
 import { Link } from '../shared/link';
 import type { GuestIntent } from '../shared/link-protocol';
 import { generateSessionCode } from '../shared/session-code';
-import { IDLE_VIEW, sampleView, type GuestView, type Phase } from '../shared/view';
+import { IDLE_VIEW, sampleView, type GuestView, type Phase, type PrintPackage } from '../shared/view';
 
 export type LogLevel = 'info' | 'ok' | 'err';
 export interface LogEntry {
@@ -31,6 +35,7 @@ export interface LogEntry {
 export interface LastResult {
   code: string;
   frame: FrameId;
+  pkg: PrintPackage;
   sheetUrl: string;
   gifUrl: string;
   link: string | null;
@@ -76,7 +81,7 @@ export class BoothController {
   private readonly listeners = new Set<() => void>();
   private snapshot: HostSnapshot;
   private logId = 0;
-  private lastSheet: { blob: Blob; code: string } | null = null;
+  private lastSheet: { blob: Blob; code: string; pkg: PrintPackage } | null = null;
   private objectUrls: string[] = [];
 
   constructor() {
@@ -100,6 +105,7 @@ export class BoothController {
     this.session = new BoothSession<HTMLCanvasElement>(
       {
         grab: () => this.camera!.grab(this.snapshot.settings.mirror),
+        thumb: (shot) => shotThumbnail(shot),
         deliver: (input) => this.deliver(input),
         newCode: generateSessionCode,
         random: secureRandom,
@@ -275,6 +281,16 @@ export class BoothController {
     this.session.handleIntent(intent, this.defaultDeck);
   }
 
+  /** Cashier confirmed payment for the big print (all photos on one sheet). */
+  approveUpgrade(): void {
+    void this.session.approveUpgrade();
+  }
+
+  /** Not paid / changed their mind: back to picking 4 photos. */
+  declineUpgrade(): void {
+    this.session.declineUpgrade();
+  }
+
   /** Shows a guest screen with sample data on the mirror and the tablet. */
   setDesignPhase(phase: Phase | null): void {
     if (phase && this.snapshot.live.phase !== 'idle') return;
@@ -290,42 +306,64 @@ export class BoothController {
   }
 
   redownloadSheet(): void {
-    if (this.lastSheet) download(this.lastSheet.blob, `sheet-${this.lastSheet.code}.jpg`);
+    if (this.lastSheet) {
+      download(this.lastSheet.blob, sheetFilename(this.lastSheet.code, this.lastSheet.pkg));
+    }
   }
 
   /* ---------- Delivery ---------- */
-  private async deliver({ code, shots, frame }: DeliverInput<HTMLCanvasElement>): Promise<DeliverResult> {
+  private async deliver({
+    code,
+    shots,
+    chosen,
+    pkg,
+    frame,
+  }: DeliverInput<HTMLCanvasElement>): Promise<DeliverResult> {
     const settings = this.snapshot.settings;
     const style = frameById(frame);
+    const info = { code, eventName: settings.eventName, date: new Date() };
     await ensureFonts();
-    const strip = buildStrip(shots, { code, eventName: settings.eventName, date: new Date() }, style);
-    const [sheetBlob, storyBlob] = await Promise.all([
-      toJpeg(buildSheet(strip)),
-      toJpeg(buildStory(strip, style)),
+
+    // Every guest gets all 8 photos digitally, uncropped.
+    const all = buildAllSheet(shots, info, style);
+    // Printed: the strip with the 4 picks (twice), or the big sheet with all 8 small
+    // landscape photos (twice). `shown` is the upright version for screens and the story.
+    const strip = pkg === 'big' ? null : buildStrip(chosen.map((i) => shots[i]), info, style);
+    const big = strip ? null : buildBigPrint(shots, info, style);
+    const print = strip ? buildSheet(strip) : printForBig(big!);
+    const shown = strip ?? big!;
+
+    const [sheetBlob, storyBlob, allBlob] = await Promise.all([
+      toJpeg(print),
+      toJpeg(buildStory(shown)),
+      toJpeg(all),
     ]);
     const gifBlob = buildGif(shots);
-    const stripThumb = stripThumbnail(strip);
+    const stripThumb = stripThumbnail(shown, strip ? 300 : 460);
     const kb = (b: Blob) => `${Math.round(b.size / 1024)}KB`;
-    this.log(`Dibuat: sheet ${kb(sheetBlob)} · story ${kb(storyBlob)} · gif ${kb(gifBlob)}`);
+    this.log(`Dibuat: sheet ${kb(sheetBlob)} · story ${kb(storyBlob)} · 8 foto ${kb(allBlob)} · gif ${kb(gifBlob)}`);
 
     this.objectUrls.splice(0).forEach((u) => URL.revokeObjectURL(u));
     const sheetUrl = this.objectUrl(sheetBlob);
     const gifUrl = this.objectUrl(gifBlob);
-    this.lastSheet = { blob: sheetBlob, code };
-    this.patch({ lastResult: { code, frame, sheetUrl, gifUrl, link: null, qr: null } });
+    this.lastSheet = { blob: sheetBlob, code, pkg };
+    this.patch({ lastResult: { code, frame, pkg, sheetUrl, gifUrl, link: null, qr: null } });
 
     // The print sheet always lands on this Mac for the printer, on top of any cloud copy.
-    download(sheetBlob, `sheet-${code}.jpg`);
-    this.log(`Download sheet-${code}.jpg`);
+    // Both sheets are two identical halves, so both print with the same 2x6 cut.
+    const sheetName = sheetFilename(code, pkg);
+    download(sheetBlob, sheetName);
+    this.log(`Download ${sheetName}`, pkg === 'big' ? 'ok' : 'info');
 
     const jobs: [AssetKey, string, Blob, string][] = [
-      ['sheet', 'Sheet', sheetBlob, `sheet-${code}.jpg`],
+      ['sheet', 'Sheet', sheetBlob, sheetName],
       ['story', 'Story', storyBlob, `story-${code}.jpg`],
+      ['all', '8 foto', allBlob, `semua-${code}.jpg`],
       ['gif', 'GIF', gifBlob, `anim-${code}.gif`],
     ];
 
     if (!hasCloud(settings)) {
-      this.log('Cloud belum diatur — story & GIF di-download lokal', 'err');
+      this.log('Cloud belum diatur — story, 8 foto & GIF di-download lokal', 'err');
       for (const [key, , blob, filename] of jobs) if (key !== 'sheet') download(blob, filename);
       return { link: null, stripThumb };
     }
@@ -360,7 +398,7 @@ export class BoothController {
       return { link: null, stripThumb };
     }
     const qr = await QRCode.toDataURL(link, { margin: 1, width: 360 });
-    this.patch({ lastResult: { code, frame, sheetUrl, gifUrl, link, qr } });
+    this.patch({ lastResult: { code, frame, pkg, sheetUrl, gifUrl, link, qr } });
     return { link, stripThumb };
   }
 
@@ -369,6 +407,11 @@ export class BoothController {
     this.objectUrls.push(url);
     return url;
   }
+}
+
+/** The big sheet gets its own name so it's easy to spot in Downloads. */
+function sheetFilename(code: string, pkg: PrintPackage): string {
+  return pkg === 'big' ? `sheet-${code}-besar.jpg` : `sheet-${code}.jpg`;
 }
 
 function download(blob: Blob, filename: string): void {

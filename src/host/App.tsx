@@ -4,6 +4,7 @@ import { FRAMES, frameById, odds } from '../booth/gacha';
 import { hasCloud } from '../booth/settings';
 import { GuestScreen, STAGE_H, STAGE_W } from '../guest/GuestScreen';
 import { PHASE_LABELS, type GuestView, type Phase } from '../shared/view';
+import { RoughFilter } from '../ui/Decor';
 import { LiveVideo } from '../ui/LiveVideo';
 import { ScaledStage } from '../ui/ScaledStage';
 import type { BoothController, HostSnapshot } from './controller';
@@ -14,7 +15,7 @@ interface PanelProps {
   ctl: BoothController;
 }
 
-const PREVIEW_PHASES: Phase[] = ['idle', 'deck', 'capturing', 'reveal', 'result'];
+const PREVIEW_PHASES: Phase[] = ['idle', 'deck', 'capturing', 'select', 'reveal', 'result'];
 
 function phaseText(v: GuestView): string {
   switch (v.phase) {
@@ -24,6 +25,10 @@ function phaseText(v: GuestView): string {
       return 'Tamu sedang pilih gaya';
     case 'capturing':
       return `Foto ${Math.min(v.shot + 1, v.totalShots)}/${v.totalShots}${v.deck ? ` · ${DECKS[v.deck].label}` : ''}`;
+    case 'select':
+      return v.upgradePending
+        ? 'Tamu minta versi besar — konfirmasi bayar'
+        : `Tamu memilih foto (${v.selected.length}/${v.pickCount})`;
     case 'reveal':
       return v.busy ? 'Gacha + menyiapkan foto…' : 'Gacha';
     case 'result':
@@ -61,6 +66,7 @@ export function App({ ctl }: { ctl: BoothController }) {
 
   return (
     <div className="console">
+      <RoughFilter />
       <CameraPanel s={s} ctl={ctl} />
       <aside className="console__side">
         <MirrorPanel s={s} ctl={ctl} />
@@ -97,7 +103,7 @@ function CameraPanel({ s, ctl }: PanelProps) {
       {s.cameraInfo && <span className="cam__info">{s.cameraInfo}</span>}
       {v.phase === 'capturing' && v.prompt && <div className="cam__prompt">{v.prompt}</div>}
       {v.phase === 'capturing' && v.count !== null && (
-        <div className="cam__count" key={`${v.shot}-${v.count}`}>
+        <div className="cam__count sticker" key={`${v.shot}-${v.count}`}>
           {v.count}
         </div>
       )}
@@ -170,7 +176,12 @@ function ResultPanel({ s, ctl }: PanelProps) {
             <img src={r.sheetUrl} alt={`Lembar cetak sesi ${r.code}`} />
           </a>
           <div className="result__info">
-            <FrameChip id={r.frame} />
+            <div className="result__chips">
+              <FrameChip id={r.frame} />
+              <span className={`pkg-chip ${r.pkg === 'big' ? 'is-big' : ''}`}>
+                {r.pkg === 'big' ? 'Besar · 8 foto kecil × 2' : 'Strip · 4 foto'}
+              </span>
+            </div>
             {r.qr ? (
               <img className="result__qr" src={r.qr} alt="QR code galeri" />
             ) : (
@@ -208,6 +219,9 @@ function StatusBar({ s, ctl, onOpen }: PanelProps & { onOpen(d: Drawer): void })
   const errors = s.log.filter((e) => e.level === 'err').length;
   return (
     <footer className="bar">
+      <span className="bar__brand sticker sticker--script" aria-label="Dearly">
+        Dearly
+      </span>
       <div className="bar__status">
         <span className={`conn ${s.tablets > 0 ? 'is-on' : ''}`}>
           <i />
@@ -224,6 +238,18 @@ function StatusBar({ s, ctl, onOpen }: PanelProps & { onOpen(d: Drawer): void })
         <strong className="bar__phase">{phaseText(s.live)}</strong>
         {s.designPhase && <span className="pill">Pratinjau</span>}
       </div>
+      {s.live.phase === 'select' && (
+        <div className={`bar__upgrade ${s.live.upgradePending ? 'is-pending' : ''}`}>
+          <button type="button" className="btn btn--primary" onClick={() => ctl.approveUpgrade()}>
+            {s.live.upgradePending ? 'Sudah bayar, cetak versi besar' : 'Upgrade ke versi besar'}
+          </button>
+          {s.live.upgradePending && (
+            <button type="button" className="btn" onClick={() => ctl.declineUpgrade()}>
+              Batal upgrade
+            </button>
+          )}
+        </div>
+      )}
       <label className="bar__deck">
         <span>Gaya default</span>
         <select value={s.settings.deck} onChange={(e) => ctl.updateSettings({ deck: e.target.value as DeckId })}>

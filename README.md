@@ -23,16 +23,25 @@ file statis di mana saja.
 **Layar tamu (tablet, landscape)** — `guest.html`
 - Layar awal dengan preview kamera live dan peluang tiap frame
 - Pilih gaya: Bestie, Couple, Chaos, Corporate, Anak Kuliahan
-- 4 foto dengan arahan pose, countdown, dan flash
+- **8 foto** dengan arahan pose, countdown, dan flash (8 arahan berbeda per gaya)
+- **Pilih 4 foto** favorit untuk strip (tap di tablet). Kalau 45 detik tidak selesai, otomatis dipakai foto paling awal
+- **Upsell versi besar**: tombol "Suka semua?" mencetak semua 8 foto ukuran kecil landscape (3,5 × 2,55 cm), 2 set.
+  Tablet menunggu sampai kasir menekan **Sudah bayar, cetak versi besar** di Mac (atau "Batal upgrade")
 - **Gacha frame** dengan animasi kapsul: Hitam, Putih, Ungu, Coklat (peluang sama, 25%)
 - Hasil: strip, frame, QR code ke galeri, kode sesi
 - Layar penuh otomatis saat disentuh, layar tidak mati selama dipakai
 
 **Proses foto**
-- Lembar cetak 1200×1800 (300dpi, 2 strip identik), story 1080×1920, GIF 480×320, warna sesuai frame gacha
+- Lembar cetak 1200×1800 (300dpi). Strip: 2 strip identik berisi 4 foto pilihan, posisi foto sama dengan template
+  frame (lubang 520×340 di x40, y43, jarak 37). Versi besar: 16 foto landscape 414×300 (3,5 × 2,55 cm), dua bagian identik
+  berisi 8 foto (4 kolom × 2 baris) dengan logo di samping; di file cetak isinya diputar 90° supaya potongan 2x6
+  printer jatuh di antara dua bagian. Versi digital 8 foto: grid landscape 2×4.
+  Story 1080×1920, GIF 8 frame 480×320, warna sesuai frame gacha
 - Kode sesi 6 karakter dicetak di strip (tanpa huruf yang mirip seperti 0/O dan 1/I/L)
 - Upload ke Cloudinary; kalau cloud belum diatur atau upload gagal, file di-download lokal
-- Lembar cetak selalu di-download ke Mac untuk dicetak
+- Lembar cetak selalu di-download ke Mac untuk dicetak (`sheet-KODE.jpg` / `sheet-KODE-besar.jpg`). Keduanya berisi
+  2 bagian identik, jadi dicetak dengan setelan potong 2x6 yang sama
+- Semua tamu dapat versi digital **8 foto** (`booth/KODE/all.jpg`) di galeri, apa pun paketnya
 
 **Galeri (tamu)** — `gallery.html`
 - Buka lewat QR (`?s=KODE`) atau ketik kode secara manual
@@ -94,7 +103,7 @@ server/booth-link.ts         hub WebSocket Mac ↔ tablet (plugin Vite)
 src/host/                    console Mac (React): controller.ts + App.tsx
 src/guest/                   layar tamu (React): GuestScreen.tsx dipakai tablet dan mirror
 src/booth/
-  session.ts                 alur sesi: layar awal → gaya → foto → gacha → hasil (diuji)
+  session.ts                 alur sesi: layar awal → gaya → 8 foto → pilih foto → gacha → hasil (diuji)
   gacha.ts                   daftar frame dan roll() berbobot (diuji)
   preview-stream.ts          kirim preview kamera ke tablet
   camera.ts                  akses kamera (getUserMedia)
@@ -106,6 +115,17 @@ src/shared/                  kode sesi, URL Cloudinary, protokol sambungan, stat
 src/ui/                      komponen bersama (stage berskala, video live, QR)
 tests/                       unit test (Vitest)
 ```
+
+## Desain (Dearly)
+
+Warna, font dan elemen dekorasi diambil dari deck Venture Creation dan ada di `src/ui/brand.css`:
+background gingham biru (layar awal tablet: gradien biru ke putih dengan titik-titik putih), kertas krem, kartu tan, merah Dearly, huruf "stiker" krem dengan outline merah,
+label merah, sticky note kuning, perangko, dan bintang (`src/ui/Decor.tsx`).
+
+Font sudah dibundel lewat npm (tidak perlu internet saat event): **Beth Ellen** (tulisan sambung,
+mis. "Dearly") dan **Darumadrop One** (judul, tombol, label) dan **Nunito** (teks panjang seperti paragraf dan petunjuk).
+Teks panjang baru tinggal diberi class `long-text`. Untuk ganti font, ubah bagian atas
+`brand.css` dan di `FONTS` pada `src/booth/config.ts` (dipakai untuk strip cetak).
 
 ## Mengubah gacha
 
