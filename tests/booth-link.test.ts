@@ -10,20 +10,20 @@ let hub: ReturnType<typeof attachLinkHub>;
 const sockets: WebSocket[] = [];
 const rawSockets = new Set<Socket>();
 
-async function start(): Promise<number> {
+async function start(heartbeatMs = 60_000): Promise<number> {
   server = createServer();
   server.on('connection', (s: Socket) => {
     rawSockets.add(s);
     s.on('close', () => rawSockets.delete(s));
   });
-  hub = attachLinkHub(server);
+  hub = attachLinkHub(server, { heartbeatMs });
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
   return (server.address() as AddressInfo).port;
 }
 
 /** Connects and collects every message, so nothing is missed between awaits. */
-async function connect(port: number, role: 'host' | 'guest') {
-  const ws = new WebSocket(`ws://127.0.0.1:${port}${LINK_PATH}?role=${role}`);
+async function connect(port: number, role: 'host' | 'guest', opts: { autoPong?: boolean } = {}) {
+  const ws = new WebSocket(`ws://127.0.0.1:${port}${LINK_PATH}?role=${role}`, opts);
   sockets.push(ws);
   const inbox: { data: Buffer; binary: boolean }[] = [];
   ws.on('message', (data: Buffer, binary: boolean) => inbox.push({ data, binary }));
@@ -59,7 +59,7 @@ describe('booth link hub', () => {
     const host = await connect(port, 'host');
     await connect(port, 'guest');
     await host.nextJson('peers'); // host alone
-    expect(await host.nextJson('peers')).toEqual({ type: 'peers', hosts: 1, guests: 1 });
+    expect(await host.nextJson('peers')).toEqual({ type: 'peers', hosts: 1, guests: 1, active: true });
   });
 
   it('routes host → guest and guest → host, never back to the sender', async () => {
@@ -98,5 +98,43 @@ describe('booth link hub', () => {
     });
     expect(outcome).not.toBe('open');
     expect(hub.peers()).toEqual({ hosts: 0, guests: 0 });
+  });
+
+  it('only the newest console drives the tablet', async () => {
+    const port = await start();
+    const oldHost = await connect(port, 'host');
+    const guest = await connect(port, 'guest');
+    const newHost = await connect(port, 'host');
+    expect(await newHost.nextJson('peers')).toEqual({ type: 'peers', hosts: 2, guests: 1, active: true });
+    await oldHost.nextJson('peers');
+    await oldHost.nextJson('peers');
+    expect(await oldHost.nextJson('peers')).toEqual({ type: 'peers', hosts: 2, guests: 1, active: false });
+
+    // A tap reaches only the newest console.
+    guest.ws.send(JSON.stringify({ type: 'intent', intent: { type: 'start' } }));
+    expect((await newHost.nextJson('intent')).intent).toEqual({ type: 'start' });
+    // The old tab's screens no longer reach the tablet; the new one's do.
+    oldHost.ws.send(JSON.stringify({ type: 'state', view: { phase: 'deck' } }));
+    newHost.ws.send(JSON.stringify({ type: 'state', view: { phase: 'set' } }));
+    expect((await guest.nextJson('state')).view.phase).toBe('set');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(oldHost.inbox.some((m) => m.data.toString().includes('"intent"'))).toBe(false);
+    expect(guest.inbox.some((m) => m.data.toString().includes('"deck"'))).toBe(false);
+
+    // Closing the new tab hands the tablet back to the old one.
+    newHost.ws.close();
+    await oldHost.next((m) => !m.binary && JSON.parse(m.data.toString()).active === true);
+  });
+
+  it('sends a heartbeat and drops a link that stopped answering', async () => {
+    const port = await start(60);
+    const host = await connect(port, 'host');
+    const dead = await connect(port, 'guest', { autoPong: false }); // like a tablet whose cable was pulled
+    await host.nextJson('peers');
+    await host.nextJson('peers'); // join
+    await host.nextJson('peers'); // heartbeat
+    await host.next((m) => !m.binary && JSON.parse(m.data.toString()).guests === 0);
+    expect(hub.peers()).toEqual({ hosts: 1, guests: 0 });
+    expect(dead.ws.readyState).not.toBe(WebSocket.OPEN);
   });
 });

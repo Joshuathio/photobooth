@@ -1,9 +1,11 @@
+import { setTimer, type TimerHandle } from '../shared/timers';
+
 /**
  * Sends the live camera picture to the tablet as small JPEG frames. Simple
  * and good enough for posing; over the USB cable it runs at ~12 fps.
  */
 export class PreviewStream {
-  private timer = 0;
+  private timer: TimerHandle | null = null;
   private encoding = false;
   private readonly canvas = document.createElement('canvas');
   mirror = true;
@@ -16,21 +18,22 @@ export class PreviewStream {
   ) {}
 
   get running(): boolean {
-    return this.timer !== 0;
+    return this.timer !== null;
   }
 
   start(): void {
     if (this.timer) return;
-    this.timer = window.setTimeout(this.tick, 0);
+    this.timer = setTimer(this.tick, 0);
   }
 
   stop(): void {
-    clearTimeout(this.timer);
-    this.timer = 0;
+    this.timer?.cancel();
+    this.timer = null;
   }
 
   private tick = (): void => {
-    this.timer = window.setTimeout(this.tick, 1000 / this.opts.fps);
+    // Worker timer: keeps ~12 fps even when the console window is in the background.
+    this.timer = setTimer(this.tick, 1000 / this.opts.fps);
     const { videoWidth: vw, videoHeight: vh } = this.video;
     if (this.encoding || vw === 0 || !this.canSend()) return;
 

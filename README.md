@@ -78,14 +78,29 @@ Setiap kali dipakai:
 4. Di Chrome tablet buka `http://localhost:5173/guest.html`. Tambahkan ke Home screen supaya selalu layar penuh,
    dan pakai **App pinning** (Settings → Security) supaya tamu tidak bisa keluar.
 
-Kalau kabel dicabut, ulangi langkah 3. Cadangan tanpa kabel: `npm run dev:wifi`, lalu buka
-`http://IP-MAC:5173/guest.html` di tablet (Mac dan tablet harus di Wi-Fi yang sama, tanpa client isolation).
+Kalau kabel dicabut, ulangi langkah 3 (atau pakai `npm run tablet:watch`, lihat di bawah). Cadangan tanpa kabel:
+`npm run dev:wifi`, lalu buka `http://IP-MAC:5173/guest.html` di tablet (Mac dan tablet harus di Wi-Fi yang sama,
+tanpa client isolation).
+
+### Saat event (paling stabil)
+
+```bash
+npm run booth          # build lalu jalankan versi jadi (tidak ada reload otomatis seperti di mode dev)
+npm run tablet:watch   # di tab Terminal kedua: memasang ulang sambungan USB tablet kalau kabel sempat lepas
+```
+
+- Buka console **di satu tab saja**. Kalau terbuka di dua tab, tablet ikut tab yang paling baru dan tab lama
+  menampilkan peringatan merah "Tab ini tidak aktif".
+- Biarkan jendela console tetap kelihatan (jangan ditutup jendela lain atau di-minimize) dan matikan sleep Mac.
+  Timer sudah tetap jalan di background, tapi kamera bisa tersendat kalau jendelanya tersembunyi.
+- Sambungan Mac ↔ tablet punya heartbeat: kalau putus diam-diam, dalam ±10 detik tablet menampilkan
+  "Sebentar ya…", menyambung lagi sendiri dan kembali ke layar sesi yang sedang berjalan.
 
 Perintah lain:
 
 ```bash
 npm run build      # build produksi ke folder dist/
-npm run preview    # jalankan hasil build (sambungan tablet juga jalan di sini)
+npm run preview    # jalankan hasil build (sambungan tablet juga jalan di sini); `npm run booth` = build + preview
 npm test           # unit test
 npm run typecheck  # cek TypeScript
 ```

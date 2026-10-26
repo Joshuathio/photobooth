@@ -299,6 +299,11 @@ body {
   font-weight: 800;
   transform: rotate(-2deg);
 }
+.pill--err {
+  background: var(--red);
+  color: var(--cream);
+  transform: none;
+}
 .bar__deck {
   display: flex;
   align-items: center;

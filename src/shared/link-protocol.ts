@@ -37,7 +37,17 @@ export type LinkMessage =
   | { type: 'state'; view: GuestView }
   /** Tablet → Mac: what the guest tapped. */
   | { type: 'intent'; intent: GuestIntent }
-  /** Hub → everyone: who is connected. */
-  | { type: 'peers'; hosts: number; guests: number };
+  /** Tablet → Mac, on every (re)connect: please send me the current screen. */
+  | { type: 'hello' }
+  /**
+   * Hub → everyone: who is connected. Also repeated every few seconds as a heartbeat.
+   * `active` (consoles only): whether this console is the one the tablet follows —
+   * the most recently opened one.
+   */
+  | { type: 'peers'; hosts: number; guests: number; active?: boolean };
+
+/** The hub sends a heartbeat this often; a link silent for STALE_MS is treated as dead. */
+export const HEARTBEAT_MS = 3_000;
+export const STALE_MS = 10_000;
 
 // Live preview frames travel as binary messages (JPEG blobs) from the Mac to the tablet.

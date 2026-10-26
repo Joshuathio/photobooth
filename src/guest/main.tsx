@@ -50,7 +50,8 @@ function GuestApp() {
     const l = new Link('guest', {
       onStatus: (up) => {
         setLinkUp(up);
-        if (!up) setHosts(0);
+        if (up) l.send({ type: 'hello' }); // get the current screen, whatever happened while away
+        else setHosts(0);
       },
       onMessage: (msg) => {
         if (msg.type === 'state') setView(msg.view);

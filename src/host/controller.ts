@@ -65,6 +65,8 @@ export interface HostSnapshot {
   linkUp: boolean;
   tablets: number;
   consoles: number;
+  /** False when a newer console tab took over the tablet; this one is then ignored. */
+  activeConsole: boolean;
   lastResult: LastResult | null;
   log: LogEntry[];
 }
@@ -103,6 +105,7 @@ export class BoothController {
       linkUp: false,
       tablets: 0,
       consoles: 0,
+      activeConsole: true,
       lastResult: null,
       log: [],
     };
@@ -123,6 +126,14 @@ export class BoothController {
       },
     );
 
+    // Chrome slows hidden tabs. Timers run on a worker now, but the camera can still
+    // stutter, so tell the operator when the console isn't visible.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden' && this.snapshot.live.phase !== 'idle') {
+        this.log('Console booth tidak kelihatan — biarkan jendela ini tetap di depan selama sesi', 'err');
+      }
+    });
+
     // Load the frame artwork up front so the first print isn't slowed down by it.
     for (const f of FRAMES) void ensureFrameArt(f);
 
@@ -140,11 +151,18 @@ export class BoothController {
             this.log(msg.guests > 0 ? 'Tablet terhubung' : 'Tablet terputus', msg.guests > 0 ? 'ok' : 'err');
           }
           if (msg.hosts > 1 && this.snapshot.consoles <= 1) {
-            this.log('Console booth terbuka di lebih dari satu tab — tutup yang lain', 'err');
+            this.log('Console booth terbuka di lebih dari satu tab — tablet ikut tab yang paling baru', 'err');
           }
-          this.patch({ tablets: msg.guests, consoles: msg.hosts });
-          if (joined) this.broadcast();
+          const active = msg.active ?? true;
+          if (!active && this.snapshot.activeConsole) {
+            this.log('Tab console ini tidak aktif lagi: tablet sekarang ikut tab console yang lebih baru', 'err');
+          }
+          const wasActive = this.snapshot.activeConsole;
+          this.patch({ tablets: msg.guests, consoles: msg.hosts, activeConsole: active });
+          if (joined || (active && !wasActive)) this.broadcast();
           this.updatePreview();
+        } else if (msg.type === 'hello') {
+          this.broadcast(); // tablet (re)connected: send it the current screen
         } else if (msg.type === 'intent') {
           this.intent(msg.intent);
         }
@@ -249,7 +267,8 @@ export class BoothController {
 
   private updatePreview(): void {
     if (!this.preview) return;
-    const want = this.snapshot.linkUp && this.snapshot.tablets > 0 && this.snapshot.cameraReady;
+    const want =
+      this.snapshot.linkUp && this.snapshot.tablets > 0 && this.snapshot.cameraReady && this.snapshot.activeConsole;
     if (want && !this.preview.running) this.preview.start();
     if (!want && this.preview.running) this.preview.stop();
   }

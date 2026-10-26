@@ -10,7 +10,9 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "booth": "npm run build && vite preview",
+    "tablet:watch": "node scripts/tablet-watch.mjs"
   },
   "dependencies": {
     "@fontsource-variable/nunito": "^5.3.0",

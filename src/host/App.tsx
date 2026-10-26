@@ -223,7 +223,7 @@ function FrameChip({ id }: { id: (typeof FRAMES)[number]['id'] }) {
 
 /* ---------- Status bar ---------- */
 function StatusBar({ s, ctl, onOpen }: PanelProps & { onOpen(d: Drawer): void }) {
-  const canStart = s.cameraReady && (s.live.phase === 'idle' || s.live.phase === 'deck');
+  const canStart = s.cameraReady && ['idle', 'set', 'deck'].includes(s.live.phase);
   const errors = s.log.filter((e) => e.level === 'err').length;
   return (
     <footer className="bar">
@@ -245,6 +245,11 @@ function StatusBar({ s, ctl, onOpen }: PanelProps & { onOpen(d: Drawer): void })
         </span>
         <strong className="bar__phase">{phaseText(s.live)}</strong>
         {s.designPhase && <span className="pill">Pratinjau</span>}
+        {!s.activeConsole && (
+          <span className="pill pill--err" role="alert">
+            Tab ini tidak aktif — tablet ikut tab console yang lebih baru. Tutup tab ini.
+          </span>
+        )}
       </div>
       {s.live.phase === 'select' && (
         <div className={`bar__upgrade ${s.live.upgradePending ? 'is-pending' : ''}`}>
@@ -270,7 +275,8 @@ function StatusBar({ s, ctl, onOpen }: PanelProps & { onOpen(d: Drawer): void })
       </label>
       <div className="bar__actions">
         <button type="button" className="btn btn--primary" disabled={!canStart} onClick={() => ctl.start()}>
-          {s.live.phase === 'deck' ? 'Foto pakai gaya default' : 'Mulai'} <kbd>Space</kbd>
+          {s.live.phase === 'deck' ? 'Foto pakai gaya default' : s.live.phase === 'set' ? 'Lanjut ke gaya' : 'Mulai'}{' '}
+          <kbd>Space</kbd>
         </button>
         <button type="button" className="btn" disabled={s.live.phase === 'idle'} onClick={() => ctl.reset()}>
           Reset <kbd>Esc</kbd>
