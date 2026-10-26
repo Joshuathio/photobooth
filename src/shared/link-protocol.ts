@@ -26,9 +26,9 @@ export type GuestIntent =
   | { type: 'upgrade' }
   /** Changed their mind about the big print. */
   | { type: 'cancelUpgrade' }
-  /** Wants the book keychain (operator confirms payment). */
+  /** Wants the book keychain: its file is saved for printing, then on to the QR. */
   | { type: 'buyBook' }
-  /** "Nggak dulu" on the offer, or "Nggak jadi" while waiting for the cashier. */
+  /** "Nggak dulu" on the book offer. */
   | { type: 'skipBook' }
   | { type: 'finish' };
 

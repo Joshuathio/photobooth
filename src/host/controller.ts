@@ -9,12 +9,13 @@ import {
   buildStory,
   buildStrip,
   ensureFonts,
+  ensureFrameArt,
   shotThumbnail,
   stripThumbnail,
   toJpeg,
 } from '../booth/compose';
 import type { DeckId } from '../booth/config';
-import { frameById, secureRandom, type FrameId } from '../booth/gacha';
+import { FRAMES, frameById, secureRandom, type FrameId, type FrameStyle } from '../booth/gacha';
 import { PreviewStream } from '../booth/preview-stream';
 import { BoothSession, type BookInput, type DeliverInput, type DeliverResult } from '../booth/session';
 import { hasCloud, loadSettings, saveSettings, type Settings } from '../booth/settings';
@@ -121,6 +122,9 @@ export class BoothController {
         this.broadcast();
       },
     );
+
+    // Load the frame artwork up front so the first print isn't slowed down by it.
+    for (const f of FRAMES) void ensureFrameArt(f);
 
     this.link = new Link('host', {
       onStatus: (up) => {
@@ -296,16 +300,6 @@ export class BoothController {
     this.session.declineUpgrade();
   }
 
-  /** Cashier confirmed payment for the book keychain. */
-  approveBook(): void {
-    this.session.approveBook();
-  }
-
-  /** Not paid: skip the book and show the result screen. */
-  declineBook(): void {
-    this.session.declineBook();
-  }
-
   /** Builds the book file for the last session again (e.g. the guest buys it later). */
   async redownloadBook(): Promise<void> {
     if (!this.lastShots) return;
@@ -344,8 +338,14 @@ export class BoothController {
     if (r && r.code === input.code) this.patch({ lastResult: { ...r, book: true } });
   }
 
+  /** Frame PNG for printing; logs (and falls back to the frame colours) if it's missing. */
+  private async loadArt(style: FrameStyle): Promise<void> {
+    if (!style.art) return;
+    if (!(await ensureFrameArt(style))) this.log(`File frame ${style.art.sheet} tidak bisa dibuka — pakai warna polos`, 'err');
+  }
+
   private async saveBook({ code, shots, frame }: BookInput<HTMLCanvasElement>): Promise<void> {
-    await ensureFonts();
+    await Promise.all([ensureFonts(), this.loadArt(frameById(frame))]);
     const info = { code, eventName: this.snapshot.settings.eventName, date: new Date() };
     const blob = await toJpeg(printForBig(buildBigPrint(shots, info, frameById(frame))));
     const name = `buku-${code}.jpg`;
@@ -363,7 +363,7 @@ export class BoothController {
     const settings = this.snapshot.settings;
     const style = frameById(frame);
     const info = { code, eventName: settings.eventName, date: new Date() };
-    await ensureFonts();
+    await Promise.all([ensureFonts(), this.loadArt(style)]);
 
     // Every guest gets all 8 photos digitally, uncropped.
     const all = buildAllSheet(shots, info, style);

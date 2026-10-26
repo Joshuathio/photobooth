@@ -192,7 +192,7 @@ export class BoothSession<Shot = unknown> {
         this.declineUpgrade();
         break;
       case 'buyBook':
-        this.requestBook();
+        this.buyBook();
         break;
       case 'skipBook':
         this.skipBook();
@@ -259,26 +259,11 @@ export class BoothSession<Shot = unknown> {
 
   /* ---------- Book keychain offer ---------- */
 
-  /** Guest tapped "Mau": stop the countdown and wait for the cashier. */
-  requestBook(): void {
-    if (this.current.phase !== 'offer' || this.current.bookPending) return;
-    this.nextPhase();
-    this.deps.log('Tamu mau gantungan kunci buku — konfirmasi pembayaran di Mac', 'ok');
-    this.set({ bookPending: true });
-  }
-
-  /** Guest said no (or changed their mind while waiting): on to the result screen. */
-  skipBook(): void {
-    if (this.current.phase !== 'offer') return;
-    if (this.current.bookPending) this.deps.log('Tamu batal beli buku');
-    this.showResult();
-  }
-
-  /** Cashier: paid. Works with or without the guest tapping "Mau" first. */
-  approveBook(): void {
+  /** Guest tapped "Mau": save the book file for printing and go straight to the QR. */
+  buyBook(): void {
     const o = this.offering;
     if (this.current.phase !== 'offer' || !o) return;
-    this.deps.log('Gantungan kunci buku dikonfirmasi', 'ok');
+    this.deps.log('Tamu ambil gantungan kunci buku', 'ok');
     this.set({ book: true });
     void this.deps
       .deliverBook({ code: o.code, shots: o.shots, frame: o.frame })
@@ -288,16 +273,15 @@ export class BoothSession<Shot = unknown> {
     this.showResult();
   }
 
-  /** Cashier: not paid. */
-  declineBook(): void {
-    if (this.current.phase !== 'offer' || !this.current.bookPending) return;
-    this.deps.log('Buku dibatalkan kasir');
+  /** "Nggak dulu": on to the result screen. */
+  skipBook(): void {
+    if (this.current.phase !== 'offer') return;
     this.showResult();
   }
 
   private showOffer(): void {
     const signal = this.nextPhase();
-    this.set({ phase: 'offer', busy: false, bookPending: false, offerId: this.current.offerId + 1 });
+    this.set({ phase: 'offer', busy: false, offerId: this.current.offerId + 1 });
     this.after(OFFER_MS, signal, () => {
       this.deps.log('Waktu penawaran buku habis');
       this.showResult();
@@ -312,7 +296,6 @@ export class BoothSession<Shot = unknown> {
     this.set({
       phase: 'result',
       busy: false,
-      bookPending: false,
       thumbs: [], // big payload; not needed any more
       link: o.result.link,
       stripThumb: o.result.stripThumb,

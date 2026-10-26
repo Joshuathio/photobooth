@@ -22,6 +22,8 @@ import {
   GIF_FRAME_MS,
   GIF_H,
   GIF_W,
+  MARGIN_CODE_X,
+  MARGIN_CODE_Y,
   MARGIN_TOP,
   MARGIN_X,
   SHEET_H,
@@ -65,10 +67,74 @@ export async function ensureFonts(): Promise<void> {
       document.fonts.load(`400 62px ${FONTS.script}`),
       document.fonts.load(`400 34px ${FONTS.chunky}`),
       document.fonts.load(`400 24px ${FONTS.body}`),
+      document.fonts.load(`800 21px ${FONTS.text}`),
     ]);
   } catch {
     // Fonts are bundled, so this only fails in very old browsers; the fallback is fine.
   }
+}
+
+/* ---------- Frame artwork (PNG from the designer) ---------- */
+
+const artLoads = new Map<string, Promise<HTMLImageElement | null>>();
+const artImages = new Map<string, HTMLImageElement>();
+
+/**
+ * Loads a frame's PNG artwork once (it's bundled with the app, so this works offline).
+ * Resolves to null for frames without art, or if the file can't be loaded — the
+ * frame is then drawn from its colours instead.
+ */
+export function ensureFrameArt(frame: FrameStyle): Promise<HTMLImageElement | null> {
+  const src = frame.art?.sheet;
+  if (!src) return Promise.resolve(null);
+  let load = artLoads.get(src);
+  if (!load) {
+    load = new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        artImages.set(src, img);
+        resolve(img);
+      };
+      img.onerror = () => {
+        artLoads.delete(src); // try again next time
+        resolve(null);
+      };
+      img.src = src;
+    });
+    artLoads.set(src, load);
+  }
+  return load;
+}
+
+function artFor(frame: FrameStyle): HTMLImageElement | null {
+  return frame.art ? (artImages.get(frame.art.sheet) ?? null) : null;
+}
+
+/** Colour for small text on a frame: the outline colour where the lettering is outlined. */
+function solidInk(frame: FrameStyle): string {
+  return frame.outline ?? frame.ink;
+}
+
+/** Text in the frame's lettering style: filled, with the outline behind it when the frame has one. */
+function letter(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  font: string,
+  fill: string,
+  outline: string | undefined,
+  maxW: number,
+): void {
+  ctx.font = font;
+  if (outline) {
+    ctx.strokeStyle = outline;
+    ctx.lineWidth = Math.max(4, parseInt(font.split(' ')[1], 10) * 0.16);
+    ctx.lineJoin = 'round';
+    ctx.strokeText(text, x, y, maxW);
+  }
+  ctx.fillStyle = fill;
+  ctx.fillText(text, x, y, maxW);
 }
 
 /** Pattern repeat on the print: 60 px ≈ 5 mm at 300 dpi. */
@@ -127,8 +193,9 @@ export function paintFrame(
 }
 
 /**
- * Frame art from the gacha roll (colour + pattern). Swap for drawImage(framePNG, ...)
- * once the designers export 600x1800 PNGs with transparent photo cutouts.
+ * One strip at x = ox. Art frames: photos in the template holes, the designer's
+ * PNG on top, and the session code sideways in the left margin. Other frames:
+ * colour + pattern with a drawn footer.
  */
 function drawStrip(
   ctx: CanvasRenderingContext2D,
@@ -137,6 +204,30 @@ function drawStrip(
   info: StripInfo,
   frame: FrameStyle,
 ): void {
+  const art = artFor(frame);
+  if (art) {
+    ctx.fillStyle = frame.bg;
+    ctx.fillRect(ox, 0, STRIP_W, SHEET_H);
+    // Photos fill the template cell; the art's own holes are the same size or a hair smaller.
+    shots.forEach((shot, i) => {
+      drawCover(ctx, shot, ox + MARGIN_X, MARGIN_TOP + i * (CELL_H + GAP), CELL_W, CELL_H);
+    });
+    // The sheet holds two identical strips; use the left one.
+    ctx.drawImage(art, 0, 0, art.width / 2, art.height, ox, 0, STRIP_W, SHEET_H);
+
+    ctx.save();
+    ctx.translate(ox + MARGIN_CODE_X, MARGIN_CODE_Y);
+    ctx.rotate(-Math.PI / 2); // reads bottom to top, like the margin text in the art
+    ctx.font = `800 21px ${FONTS.text}`;
+    ctx.letterSpacing = '1px';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = solidInk(frame);
+    ctx.fillText(`KODE ${info.code}`, 0, 0);
+    ctx.restore();
+    return;
+  }
+
   paintFrame(ctx, frame, ox, 0, STRIP_W, SHEET_H);
 
   shots.forEach((shot, i) => {
@@ -212,6 +303,26 @@ export function buildBigPrint(
     });
 
     // Footer column, stacked and centred in this half.
+    ctx.textAlign = 'center';
+    if (frame.art) {
+      // Same hand lettering as the strip art: "with love, Dearly".
+      const ink = solidInk(frame);
+      letter(ctx, 'with love,', fx, oy + 206, `400 24px ${FONTS.script}`, frame.ink, frame.outline, maxW);
+      letter(ctx, 'Dearly', fx, oy + 250, `400 40px ${FONTS.script}`, frame.ink, frame.outline, maxW);
+      const small: [string, string, number][] = [
+        [date, `400 15px ${FONTS.body}`, 306],
+        [info.eventName, `400 12px ${FONTS.body}`, 328],
+        ['Kode', `400 13px ${FONTS.body}`, 362],
+        [info.code, `400 20px ${FONTS.chunky}`, 386],
+      ];
+      ctx.fillStyle = ink;
+      for (const [text, font, dy] of small) {
+        if (!text) continue;
+        ctx.font = font;
+        ctx.fillText(text, fx, oy + dy, maxW);
+      }
+      continue;
+    }
     const lines: [string, string, string, number][] = [
       ['Dearly', frame.ink, `400 34px ${FONTS.script}`, 232],
       ['Photobooth', frame.accent, `400 16px ${FONTS.chunky}`, 264],
@@ -220,7 +331,6 @@ export function buildBigPrint(
       ['Kode', frame.dim, `400 13px ${FONTS.body}`, 362],
       [info.code, frame.ink, `400 20px ${FONTS.chunky}`, 386],
     ];
-    ctx.textAlign = 'center';
     for (const [text, color, font, dy] of lines) {
       if (!text) continue;
       ctx.fillStyle = color;
@@ -265,6 +375,24 @@ export function buildAllSheet(
   const left = SHEET_W / 4;
   const right = (SHEET_W * 3) / 4;
   const date = info.date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+  const colW = SHEET_W / 2 - 2 * MARGIN_X;
+  ctx.textAlign = 'center';
+  if (frame.art) {
+    letter(ctx, 'with love,', left - 40, ALL_FOOTER_Y + 78, `400 44px ${FONTS.script}`, frame.ink, frame.outline, colW);
+    letter(ctx, 'Dearly', left + 30, ALL_FOOTER_Y + 156, `400 76px ${FONTS.script}`, frame.ink, frame.outline, colW);
+    const small: [string, string, number][] = [
+      [date, `400 26px ${FONTS.body}`, 84],
+      [info.eventName, `400 22px ${FONTS.body}`, 120],
+      [`Kode ${info.code}`, `400 32px ${FONTS.chunky}`, 168],
+    ];
+    ctx.fillStyle = solidInk(frame);
+    for (const [text, font, dy] of small) {
+      if (!text) continue;
+      ctx.font = font;
+      ctx.fillText(text, right, ALL_FOOTER_Y + dy, colW);
+    }
+    return c;
+  }
   const lines: [string, string, string, number, number][] = [
     ['Dearly', frame.ink, `400 70px ${FONTS.script}`, left, 100],
     ['Photobooth', frame.accent, `400 36px ${FONTS.chunky}`, left, 166],

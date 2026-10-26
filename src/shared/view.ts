@@ -42,9 +42,7 @@ export interface GuestView {
   pkg: PrintPackage;
   /** Guest asked for the big print; waiting for the operator to confirm payment. */
   upgradePending: boolean;
-  /** Guest wants the book keychain; waiting for the operator to confirm payment. */
-  bookPending: boolean;
-  /** The book keychain was paid for in this session. */
+  /** The guest took the book keychain in this session. */
   book: boolean;
   /** Bumps each time the book offer opens, so screens restart their 30 s countdown. */
   offerId: number;
@@ -72,7 +70,6 @@ export const IDLE_VIEW: GuestView = {
   pickCount: STRIP_SHOTS,
   pkg: 'standard',
   upgradePending: false,
-  bookPending: false,
   book: false,
   offerId: 0,
   preview: false,
@@ -96,12 +93,12 @@ export function sampleView(phase: Phase): GuestView {
     ...IDLE_VIEW,
     phase,
     preview: true,
-    set: phase === 'idle' ? null : 'B',
+    set: phase === 'idle' ? null : 'A',
     deck: phase === 'idle' || phase === 'set' ? null : deck,
     shot: phase === 'capturing' ? 1 : 0,
     prompt: phase === 'capturing' ? DECKS[deck].prompts[1] : null,
     count: phase === 'capturing' ? 3 : null,
-    frame: phase === 'reveal' || phase === 'offer' || phase === 'result' ? 'f5' : null,
+    frame: phase === 'reveal' || phase === 'offer' || phase === 'result' ? 'a4' : null,
     code: phase === 'offer' || phase === 'result' ? 'K7XP2Q' : null,
     selected: phase === 'select' ? [0, 2, 5] : phase === 'offer' ? [0, 2, 5, 7] : [],
     offerId: phase === 'offer' ? Date.now() : 0,

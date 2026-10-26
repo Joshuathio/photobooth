@@ -13,24 +13,32 @@ function mulberry32(seed: number): () => number {
 }
 
 describe('gacha', () => {
-  it('has three sets of three frames, each with equal odds inside its set', () => {
+  it('has three sets with equal odds inside each set', () => {
     expect(FRAME_SETS.map((s) => s.label)).toEqual(['Set A', 'Set B', 'Set C']);
-    expect(FRAMES).toHaveLength(9);
-    expect(framesInSet('A').map((f) => f.id)).toEqual(['f1', 'f2', 'f3']);
-    expect(framesInSet('B').map((f) => f.id)).toEqual(['f4', 'f5', 'f6']);
-    expect(framesInSet('C').map((f) => f.id)).toEqual(['f7', 'f8', 'f9']);
+    expect(framesInSet('A').map((f) => f.id)).toEqual(['a1', 'a2', 'a3', 'a4', 'a5']);
+    expect(framesInSet('B').map((f) => f.id)).toEqual(['b1', 'b2', 'b3']);
+    expect(framesInSet('C').map((f) => f.id)).toEqual(['c1', 'c2', 'c3']);
+    expect(FRAMES.map((f) => f.name)).toEqual(Array.from({ length: 11 }, (_, i) => `Frame ${i + 1}`));
     for (const set of FRAME_SETS) {
-      for (const p of odds(framesInSet(set.id))) expect(p).toBeCloseTo(100 / 3);
+      const pool = framesInSet(set.id);
+      for (const p of odds(pool)) expect(p).toBeCloseTo(100 / pool.length);
     }
+  });
+
+  it('uses the designer artwork for every Set A frame', () => {
+    framesInSet('A').forEach((f, i) => {
+      expect(f.art?.sheet).toBe(`/frames/minimal/minimal-${i + 1}.png`);
+      expect(f.art?.thumb).toBe(`/frames/minimal/minimal-${i + 1}-thumb.jpg`);
+    });
   });
 
   it('maps the random number onto the weights', () => {
     const b = framesInSet('B');
-    expect(roll(b, 0).id).toBe('f4');
-    expect(roll(b, 0.333).id).toBe('f4');
-    expect(roll(b, 0.34).id).toBe('f5');
-    expect(roll(b, 0.6).id).toBe('f5');
-    expect(roll(b, 0.9999).id).toBe('f6');
+    expect(roll(b, 0).id).toBe('b1');
+    expect(roll(b, 0.333).id).toBe('b1');
+    expect(roll(b, 0.34).id).toBe('b2');
+    expect(roll(b, 0.6).id).toBe('b2');
+    expect(roll(b, 0.9999).id).toBe('b3');
   });
 
   it('respects uneven weights', () => {
@@ -45,7 +53,7 @@ describe('gacha', () => {
     expect(roll(pool, 0.95).id).toBe('legendary');
   });
 
-  it('comes out close to a third each over many rolls inside a set', () => {
+  it('comes out close to a fifth each over many rolls in Set A', () => {
     const rand = mulberry32(42);
     const pool = framesInSet('A');
     const counts = new Map<string, number>();
@@ -56,8 +64,8 @@ describe('gacha', () => {
     }
     for (const f of pool) {
       const share = (counts.get(f.id) ?? 0) / n;
-      expect(share).toBeGreaterThan(0.31);
-      expect(share).toBeLessThan(0.36);
+      expect(share).toBeGreaterThan(0.18);
+      expect(share).toBeLessThan(0.22);
     }
   });
 

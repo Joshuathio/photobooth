@@ -28,10 +28,11 @@ file statis di mana saja.
 - **Pilih 4 foto** favorit untuk strip (tap di tablet). Kalau 45 detik tidak selesai, otomatis dipakai foto paling awal
 - **Upsell versi besar**: tombol "Suka semua?" mencetak semua 8 foto ukuran kecil landscape (3,5 × 2,55 cm), 2 set.
   Tablet menunggu sampai kasir menekan **Sudah bayar, cetak versi besar** di Mac (atau "Batal upgrade")
-- **Gacha frame** dengan animasi kapsul, diundi dari 3 frame di set yang dipilih (peluang sama, 1 dari 3)
+- **Gacha frame** dengan animasi kapsul, diundi dari frame di set yang dipilih (peluang sama). Set A = 5 frame
+  "Minimal" dari desainer (frame 1–5); Set B (6–8) dan Set C (9–11) masih contoh warna
 - **Penawaran gantungan kunci buku (+15rb)** setelah gacha, sebelum QR: layar dengan buku mini berisi foto tamu dan
-  timer 30 detik. "Mau" → tamu bayar ke kasir, kasir tekan **Sudah bayar 15rb, buat buku** di Mac, lalu file
-  `buku-KODE.jpg` (16 foto landscape, 8 foto × 2, sama seperti versi besar) di-download. Timer habis / "Nggak dulu" → hasil
+  timer 30 detik. "Mau" → file `buku-KODE.jpg` (16 foto landscape, 8 foto × 2, sama seperti versi besar) langsung
+  di-download untuk dicetak, lalu layar QR (tamu diingatkan bayar 15rb ke kasir). Timer habis / "Nggak dulu" → hasil
 - Hasil (45 detik): strip, frame, QR code ke galeri, kode sesi
 - Layar penuh otomatis saat disentuh, layar tidak mati selama dipakai
 
@@ -140,10 +141,17 @@ otomatis menampilkan persentase yang baru.
 
 ## Mengganti desain frame
 
-Desain strip saat ini berupa warna + pola (titik, garis, gingham, taburan) dari frame gacha (`paintFrame` dan
-`drawStrip` di `src/booth/compose.ts`). Warna dan polanya masih contoh. Setelah
-desainer mengekspor PNG 600×1800 dengan lubang transparan untuk foto, ganti bagian itu dengan
-`ctx.drawImage(framePng, ...)`.
+Frame dari desainer ada di `public/frames/`: PNG 1200×1800 (dua strip identik) dengan lubang foto transparan di
+posisi template (y 43 / 420 / 797 / 1174, tinggi 340), plus thumbnail satu strip (`-thumb.jpg`, 200×600) untuk
+layar tablet. Untuk menambah frame:
+
+1. Taruh PNG di `public/frames/<nama-set>/` dan buat thumbnail-nya (strip kiri, lubang diisi warna netral).
+2. Di `FRAMES` (`src/booth/gacha.ts`) isi `art: { sheet, thumb }`, warna latar (`bg`), warna tulisan (`ink`) dan
+   `outline` kalau tulisannya bergaris tepi (seperti frame gingham).
+
+Foto digambar di bawah PNG, lalu kode sesi dicetak tegak di margin kiri bawah (`MARGIN_CODE_X/Y` di `config.ts`).
+Versi besar/buku dan sheet digital 8 foto memakai warna frame dengan tulisan "with love, Dearly". Frame tanpa
+`art` digambar dari warna + pola (`paintFrame` di `src/booth/compose.ts`).
 
 ## Catatan keamanan
 

@@ -34,7 +34,7 @@ function phaseText(v: GuestView): string {
     case 'reveal':
       return v.busy ? 'Gacha + menyiapkan foto…' : 'Gacha';
     case 'offer':
-      return v.bookPending ? `Tamu mau buku — konfirmasi bayar ${BOOK_PRICE}` : 'Penawaran gantungan kunci buku';
+      return `Penawaran gantungan kunci buku (${BOOK_PRICE})`;
     case 'result':
       return `Hasil · ${v.code ?? ''}`;
   }
@@ -215,7 +215,7 @@ function ResultPanel({ s, ctl }: PanelProps) {
 function FrameChip({ id }: { id: (typeof FRAMES)[number]['id'] }) {
   const f = frameById(id);
   return (
-    <span className="frame-chip" style={{ background: f.bg, color: f.ink }}>
+    <span className="frame-chip" style={{ background: f.bg, color: f.outline ?? f.ink }}>
       {setById(f.set).label} · {f.name}
     </span>
   );
@@ -254,18 +254,6 @@ function StatusBar({ s, ctl, onOpen }: PanelProps & { onOpen(d: Drawer): void })
           {s.live.upgradePending && (
             <button type="button" className="btn" onClick={() => ctl.declineUpgrade()}>
               Batal upgrade
-            </button>
-          )}
-        </div>
-      )}
-      {s.live.phase === 'offer' && (
-        <div className={`bar__upgrade ${s.live.bookPending ? 'is-pending' : ''}`}>
-          <button type="button" className="btn btn--primary" onClick={() => ctl.approveBook()}>
-            {s.live.bookPending ? `Sudah bayar ${BOOK_PRICE}, buat buku` : 'Tambah buku'}
-          </button>
-          {s.live.bookPending && (
-            <button type="button" className="btn" onClick={() => ctl.declineBook()}>
-              Batal buku
             </button>
           )}
         </div>

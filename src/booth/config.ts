@@ -71,7 +71,13 @@ export const FONTS = {
   body: '"Darumadrop One", system-ui, sans-serif',
   chunky: '"Darumadrop One", system-ui, sans-serif',
   script: '"Beth Ellen", cursive',
+  /** Small print in the frame margins (the session code), like the designer's margin text. */
+  text: '"Nunito Variable", "Nunito", system-ui, sans-serif',
 } as const;
+
+/** Session code printed sideways in the left margin of art frames, centred here (below the heart sticker). */
+export const MARGIN_CODE_X = 24;
+export const MARGIN_CODE_Y = 1340;
 
 export interface Deck {
   label: string;

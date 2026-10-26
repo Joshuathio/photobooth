@@ -51,12 +51,17 @@ function frameVars(frame: FrameStyle): CSSProperties {
     '--f-bg': frame.bg,
     '--f-border': frame.border,
     '--f-ink': frame.ink,
+    /** Readable text colour on the frame colour (the outline colour where the lettering is white). */
+    '--f-solid': frame.outline ?? frame.ink,
     '--f-pc': frame.patternInk,
   } as CSSProperties;
 }
 
 /** Tiny strip with four photo holes, painted in a frame's colours and pattern. */
 function MiniStrip({ frame, className = '' }: { frame: FrameStyle; className?: string }) {
+  if (frame.art) {
+    return <img className={`gs-mini gs-mini--art ${className}`} src={frame.art.thumb} alt="" aria-hidden="true" />;
+  }
   return (
     <span className={`gs-mini pat-${frame.pattern} ${className}`} style={frameVars(frame)} aria-hidden="true">
       <i />
@@ -109,12 +114,12 @@ function Attract({ preview, onStart }: { preview: ReactNode; onStart(): void }) 
         <ul>
           {FRAME_SETS.map((set) => (
             <li key={set.id}>
+              <b>{set.label}</b>
               <span className="gs-odds__strips">
                 {framesInSet(set.id).map((f) => (
                   <MiniStrip key={f.id} frame={f} />
                 ))}
               </span>
-              <b>{set.label}</b>
             </li>
           ))}
         </ul>
@@ -128,9 +133,26 @@ function Attract({ preview, onStart }: { preview: ReactNode; onStart(): void }) 
 const frameNo = (frame: FrameStyle) => frame.name.replace(/\D+/g, '');
 
 /** One frame in a set card: a little strip with its number badge. */
-function SetStrip({ frame, slot }: { frame: FrameStyle; slot: number }) {
+function SetStrip({ frame, slot, count }: { frame: FrameStyle; slot: number; count: number }) {
+  // Fan the strips out like a hand of cards; wider sets fan tighter.
+  const off = slot - (count - 1) / 2;
+  const step = count > 3 ? 48 : 74;
+  const tilt = count > 3 ? 8 : 11;
+  const style = {
+    ...frameVars(frame),
+    transform: `translateX(${off * step}px) translateY(${Math.abs(off) * 8 - 10}px) rotate(${off * tilt}deg)`,
+    zIndex: count - Math.round(Math.abs(off)),
+  } as CSSProperties;
+  if (frame.art) {
+    return (
+      <span className="gs-setstrip gs-setstrip--art" style={style}>
+        <img src={frame.art.thumb} alt="" />
+        <em>{frameNo(frame)}</em>
+      </span>
+    );
+  }
   return (
-    <span className={`gs-setstrip gs-setstrip--${slot} pat-${frame.pattern}`} style={frameVars(frame)}>
+    <span className={`gs-setstrip pat-${frame.pattern}`} style={style}>
       <i />
       <i />
       <i />
@@ -177,11 +199,13 @@ function SetPicker({ chosen, onIntent }: { chosen: SetId | null; onIntent(intent
                 )}
                 <span className="gs-setcard__fan" aria-hidden="true">
                   {frames.map((f, i) => (
-                    <SetStrip key={f.id} frame={f} slot={i} />
+                    <SetStrip key={f.id} frame={f} slot={i} count={frames.length} />
                   ))}
                 </span>
                 <span className="gs-setcard__foot">
-                  <span className="gs-setcard__names">Frame {frames.map(frameNo).join(' · ')}</span>
+                  <span className="gs-setcard__names">
+                    Frame {frameNo(frames[0])}–{frameNo(frames[frames.length - 1])}
+                  </span>
                   <span className="gs-setcard__odds">tiap frame 1 dari {frames.length}</span>
                 </span>
               </button>
@@ -192,7 +216,9 @@ function SetPicker({ chosen, onIntent }: { chosen: SetId | null; onIntent(intent
 
       <div className="gs-sets__bar">
         <span className="gs-sets__hint sticky">
-          {chosen ? `Kamu bakal dapet salah satu dari 3 frame ${setById(chosen).label}` : 'Tap salah satu set dulu ya'}
+          {chosen
+            ? `Kamu bakal dapet salah satu dari ${framesInSet(chosen).length} frame ${setById(chosen).label}`
+            : 'Tap salah satu set dulu ya'}
         </span>
         <button
           type="button"
@@ -390,14 +416,13 @@ function Reveal({ view }: { view: GuestView }) {
 
 /* ---------- Book keychain offer ---------- */
 /** Whole seconds left, counted locally from when the offer opened. */
-function useSecondsLeft(totalMs: number, running: boolean): number {
+function useSecondsLeft(totalMs: number): number {
   const start = useRef(Date.now());
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (!running) return;
     const id = setInterval(() => setNow(Date.now()), 250);
     return () => clearInterval(id);
-  }, [running]);
+  }, []);
   return Math.max(0, Math.ceil((totalMs - (now - start.current)) / 1000));
 }
 
@@ -472,69 +497,44 @@ function BookKeychain({ view }: { view: GuestView }) {
 }
 
 function BookOffer({ view, onIntent }: { view: GuestView; onIntent(intent: GuestIntent): void }) {
-  const seconds = useSecondsLeft(OFFER_MS, !view.bookPending);
+  const seconds = useSecondsLeft(OFFER_MS);
   const total = Math.round(OFFER_MS / 1000);
   return (
-    <div className={`gs-offer ${view.bookPending ? 'is-pending' : ''}`}>
+    <div className="gs-offer">
       <Star size={40} className="gs-offer__s1" />
       <Star size={26} className="gs-offer__s2" />
       <Star size={34} className="gs-offer__s3" />
       <BookKeychain view={view} />
 
       <div className="gs-sheet paper gs-offer__card">
-        {view.bookPending ? (
-          <>
-            <h1 className="gs-title sticker gs-offer__title gs-offer__title--pay">Bayar ke kasir ya!</h1>
-            <p className="gs-offer__lede">
-              Bilang kode kamu ke kasir dan bayar <b>{BOOK_PRICE}</b>. Setelah dikonfirmasi, gantungan kunci bukumu
-              langsung kami buat.
-            </p>
-            <span className="gs-offer__label">Kode kamu</span>
-            <span className="tag gs-offer__code">{view.code}</span>
-            <p className="gs-offer__wait">
-              <span className="gs-offer__dots">
-                <i />
-                <i />
-                <i />
-              </span>
-              Nunggu konfirmasi kasir…
-            </p>
-            <button type="button" className="gs-offer__no" onClick={() => onIntent({ type: 'skipBook' })}>
-              Nggak jadi
-            </button>
-          </>
-        ) : (
-          <>
-            <p className="gs-offer__kicker sticker sticker--script">Satu lagi…</p>
-            <h1 className="gs-title sticker gs-offer__title">Mau versi buku?</h1>
-            <p className="gs-offer__lede">
-              Semua {view.totalShots} fotomu dijadiin <b>buku mini gantungan kunci</b>. Pas buat digantung di tas atau
-              kunci motor.
-            </p>
-            <div className="gs-offer__thumbs" aria-hidden="true">
-              {Array.from({ length: view.totalShots }, (_, i) => (
-                <span key={i}>
-                  <Thumb src={view.thumbs[i]} i={i} />
-                </span>
-              ))}
-            </div>
-            <div className="gs-offer__row">
-              <TimerRing size={132} seconds={seconds} />
-              <div className="gs-offer__expire">
-                <span className="gs-offer__left">Cuma {total} detik!</span>
-                <span className="gs-offer__note">Kalau waktunya habis, penawarannya hilang dan fotomu langsung muncul.</span>
-              </div>
-            </div>
-            <div className="gs-offer__actions">
-              <button type="button" className="gs-offer__yes tag" onClick={() => onIntent({ type: 'buyBook' })}>
-                Mau, tambah buku!
-              </button>
-              <button type="button" className="gs-offer__no" onClick={() => onIntent({ type: 'skipBook' })}>
-                Nggak dulu
-              </button>
-            </div>
-          </>
-        )}
+        <p className="gs-offer__kicker sticker sticker--script">Satu lagi…</p>
+        <h1 className="gs-title sticker gs-offer__title">Mau versi buku?</h1>
+        <p className="gs-offer__lede">
+          Semua {view.totalShots} fotomu dijadiin <b>buku mini gantungan kunci</b>. Pas buat digantung di tas atau
+          kunci motor.
+        </p>
+        <div className="gs-offer__thumbs" aria-hidden="true">
+          {Array.from({ length: view.totalShots }, (_, i) => (
+            <span key={i}>
+              <Thumb src={view.thumbs[i]} i={i} />
+            </span>
+          ))}
+        </div>
+        <div className="gs-offer__row">
+          <TimerRing size={132} seconds={seconds} />
+          <div className="gs-offer__expire">
+            <span className="gs-offer__left">Cuma {total} detik!</span>
+            <span className="gs-offer__note">Kalau waktunya habis, penawarannya hilang dan fotomu langsung muncul.</span>
+          </div>
+        </div>
+        <div className="gs-offer__actions">
+          <button type="button" className="gs-offer__yes tag" onClick={() => onIntent({ type: 'buyBook' })}>
+            Mau, tambah buku!
+          </button>
+          <button type="button" className="gs-offer__no" onClick={() => onIntent({ type: 'skipBook' })}>
+            Nggak dulu
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -546,7 +546,7 @@ function Result({ view, onFinish }: { view: GuestView; onFinish(): void }) {
   const qr = useQr(view.link);
   const printing =
     (view.pkg === 'big' ? 'Versi besarmu lagi dicetak' : 'Strip-nya lagi dicetak') +
-    (view.book ? ', gantungan kunci bukumu juga lagi dibuat.' : '.');
+    (view.book ? `, gantungan kunci bukumu juga. Bayar ${BOOK_PRICE} buat bukunya ke kasir ya.` : '.');
   return (
     <div className={`gs-result ${view.pkg === 'big' ? 'gs-result--big' : ''}`}>
       <div className="gs-result__strip">

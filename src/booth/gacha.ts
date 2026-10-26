@@ -4,7 +4,8 @@
  * to rarity tiers later (e.g. 60/30/10), change the weights — roll() and odds()
  * already handle any weighting.
  *
- * The colours and patterns are placeholders until the designer's frames are in.
+ * Set A uses the designer's finished frames (PNG art in public/frames/). Sets B
+ * and C are colour-and-pattern placeholders until their designs are in.
  */
 export type SetId = 'A' | 'B' | 'C';
 
@@ -29,7 +30,20 @@ export interface FrameStyle {
   pattern: FramePattern;
   /** Colour of the pattern marks (keep it faint so the footer stays readable). */
   patternInk: string;
+  /**
+   * Finished artwork from the designer. `sheet` is the full 1200×1800 print with
+   * transparent photo holes (two identical strips); `thumb` is one strip for the
+   * screens. Frames without art are drawn from the colours above.
+   */
+  art?: { sheet: string; thumb: string };
+  /** Outline around the hand-lettered "with love, Dearly" on layouts the art doesn't cover. */
+  outline?: string;
 }
+
+const minimal = (n: number) => ({
+  sheet: `/frames/minimal/minimal-${n}.png`,
+  thumb: `/frames/minimal/minimal-${n}-thumb.jpg`,
+});
 
 export interface FrameSet {
   id: SetId;
@@ -46,18 +60,20 @@ export const FRAME_SETS = [
 ] as const satisfies readonly FrameSet[];
 
 export const FRAMES = [
-  // Set A: cream, pink, red
-  { id: 'f1', name: 'Frame 1', set: 'A', weight: 1, bg: '#F7F1E8', border: '#E3D6C4', ink: '#9E2A2B', dim: '#A8695F', accent: '#9E2A2B', pattern: 'dots', patternInk: 'rgba(158, 42, 43, 0.16)' },
-  { id: 'f2', name: 'Frame 2', set: 'A', weight: 1, bg: '#F2C4C2', border: '#E2A9A6', ink: '#9E2A2B', dim: '#9C4E47', accent: '#7C1F20', pattern: 'none', patternInk: 'transparent' },
-  { id: 'f3', name: 'Frame 3', set: 'A', weight: 1, bg: '#9E2A2B', border: '#7C1F20', ink: '#F7F1E8', dim: '#EBC2BC', accent: '#F4ECB1', pattern: 'sprinkle', patternInk: 'rgba(247, 241, 232, 0.2)' },
-  // Set B: gingham blue, white stripes, navy
-  { id: 'f4', name: 'Frame 4', set: 'B', weight: 1, bg: '#DCE6F5', border: '#BFD0EA', ink: '#2F4A80', dim: '#506DA5', accent: '#2F4A80', pattern: 'check', patternInk: 'rgba(84, 127, 204, 0.24)' },
-  { id: 'f5', name: 'Frame 5', set: 'B', weight: 1, bg: '#F7F4EE', border: '#DCE3EE', ink: '#2F4A80', dim: '#5F78AA', accent: '#9E2A2B', pattern: 'stripes', patternInk: 'rgba(84, 127, 204, 0.15)' },
-  { id: 'f6', name: 'Frame 6', set: 'B', weight: 1, bg: '#2F4A80', border: '#22385F', ink: '#F7F1E8', dim: '#B5C6E6', accent: '#F4ECB1', pattern: 'sprinkle', patternInk: 'rgba(247, 241, 232, 0.24)' },
-  // Set C: tan, mocha, sage
-  { id: 'f7', name: 'Frame 7', set: 'C', weight: 1, bg: '#E4D3B5', border: '#CDB892', ink: '#6B4430', dim: '#83614A', accent: '#6B4430', pattern: 'dots', patternInk: 'rgba(107, 68, 48, 0.15)' },
-  { id: 'f8', name: 'Frame 8', set: 'C', weight: 1, bg: '#6B4430', border: '#56351F', ink: '#F1E4CC', dim: '#D7B99A', accent: '#F1D98A', pattern: 'none', patternInk: 'transparent' },
-  { id: 'f9', name: 'Frame 9', set: 'C', weight: 1, bg: '#AFBF95', border: '#95A77A', ink: '#3F4B2B', dim: '#55623F', accent: '#3F4B2B', pattern: 'stripes', patternInk: 'rgba(63, 75, 43, 0.14)' },
+  // Set A: "Minimal", the designer's finished frames
+  { id: 'a1', name: 'Frame 1', set: 'A', weight: 1, bg: '#000000', border: '#000000', ink: '#FFFFFF', dim: '#BFBFBF', accent: '#FFFFFF', pattern: 'none', patternInk: 'transparent', art: minimal(1) },
+  { id: 'a2', name: 'Frame 2', set: 'A', weight: 1, bg: '#FFFFFF', border: '#FFFFFF', ink: '#B6282C', dim: '#C2585C', accent: '#B6282C', pattern: 'none', patternInk: 'transparent', art: minimal(2) },
+  { id: 'a3', name: 'Frame 3', set: 'A', weight: 1, bg: '#FFFFFF', border: '#FFFFFF', ink: '#5E95D6', dim: '#79ACE4', accent: '#5E95D6', pattern: 'none', patternInk: 'transparent', art: minimal(3) },
+  { id: 'a4', name: 'Frame 4', set: 'A', weight: 1, bg: '#DCE6F0', border: '#DCE6F0', ink: '#FFFFFF', dim: '#3F88D8', accent: '#3F88D8', pattern: 'check', patternInk: 'rgba(63, 136, 216, 0.42)', art: minimal(4), outline: '#3F88D8' },
+  { id: 'a5', name: 'Frame 5', set: 'A', weight: 1, bg: '#B6282C', border: '#B6282C', ink: '#FFFFFF', dim: '#F0C9CA', accent: '#FFFFFF', pattern: 'none', patternInk: 'transparent', art: minimal(5) },
+  // Set B (placeholder): gingham blue, white stripes, navy
+  { id: 'b1', name: 'Frame 6', set: 'B', weight: 1, bg: '#DCE6F5', border: '#BFD0EA', ink: '#2F4A80', dim: '#506DA5', accent: '#2F4A80', pattern: 'check', patternInk: 'rgba(84, 127, 204, 0.24)' },
+  { id: 'b2', name: 'Frame 7', set: 'B', weight: 1, bg: '#F7F4EE', border: '#DCE3EE', ink: '#2F4A80', dim: '#5F78AA', accent: '#9E2A2B', pattern: 'stripes', patternInk: 'rgba(84, 127, 204, 0.15)' },
+  { id: 'b3', name: 'Frame 8', set: 'B', weight: 1, bg: '#2F4A80', border: '#22385F', ink: '#F7F1E8', dim: '#B5C6E6', accent: '#F4ECB1', pattern: 'sprinkle', patternInk: 'rgba(247, 241, 232, 0.24)' },
+  // Set C (placeholder): tan, mocha, sage
+  { id: 'c1', name: 'Frame 9', set: 'C', weight: 1, bg: '#E4D3B5', border: '#CDB892', ink: '#6B4430', dim: '#83614A', accent: '#6B4430', pattern: 'dots', patternInk: 'rgba(107, 68, 48, 0.15)' },
+  { id: 'c2', name: 'Frame 10', set: 'C', weight: 1, bg: '#6B4430', border: '#56351F', ink: '#F1E4CC', dim: '#D7B99A', accent: '#F1D98A', pattern: 'none', patternInk: 'transparent' },
+  { id: 'c3', name: 'Frame 11', set: 'C', weight: 1, bg: '#AFBF95', border: '#95A77A', ink: '#3F4B2B', dim: '#55623F', accent: '#3F4B2B', pattern: 'stripes', patternInk: 'rgba(63, 75, 43, 0.14)' },
 ] as const satisfies readonly FrameStyle[];
 
 export type FrameId = (typeof FRAMES)[number]['id'];

@@ -19,7 +19,7 @@ function setup(overrides: Partial<SessionDeps<number>> = {}, fireTimeouts: numbe
     deliver: vi.fn(async () => ({ link: 'https://x.test/g?s=ABC234', stripThumb: 'data:x' })),
     deliverBook: vi.fn(async () => {}),
     newCode: () => 'ABC234',
-    random: () => 0.6, // → the 2nd of 3 frames in the set (Set B → 'f5')
+    random: () => 0.6, // → the 2nd of 3 frames in the set (Set B → 'b2')
     log: () => {},
     sleep: (ms, signal) =>
       ms >= 30_000 && !fireTimeouts.includes(ms) ? new Promise(() => {}) : fastSleep(ms, signal),
@@ -78,10 +78,10 @@ describe('BoothSession', () => {
       shots: [1, 2, 3, 4, 5, 6, 7, 8],
       chosen: [1, 3, 4, 6],
       pkg: 'standard',
-      frame: 'f5',
+      frame: 'b2',
     });
     // The book offer comes before the QR, and still has the photos for its preview.
-    expect(session.view).toMatchObject({ phase: 'offer', pkg: 'standard', link: null, bookPending: false });
+    expect(session.view).toMatchObject({ phase: 'offer', pkg: 'standard', link: null, book: false });
     expect(session.view.thumbs).toHaveLength(SHOTS);
     session.handleIntent({ type: 'skipBook' }, 'BESTIE');
     expect(session.view).toMatchObject({ phase: 'result', pkg: 'standard', link: 'https://x.test/g?s=ABC234', book: false });
@@ -235,9 +235,9 @@ describe('BoothSession', () => {
   });
 
   it.each([
-    [0, 'f7'],
-    [0.5, 'f8'],
-    [0.999, 'f9'],
+    [0, 'c1'],
+    [0.5, 'c2'],
+    [0.999, 'c3'],
   ])('only rolls frames from the chosen set (random %s → %s)', async (r, frame) => {
     const { deps, session } = setup({ random: () => r });
     session.begin();
@@ -259,85 +259,48 @@ describe('BoothSession', () => {
     await session.confirm();
   }
 
-  it('sells the book: guest taps "Mau", cashier confirms, the book file is made', async () => {
+  it('sells the book: "Mau" saves the book file and goes straight to the QR', async () => {
     const { deps, session } = setup();
     await toOffer(session);
-    const offerId = session.view.offerId;
-    expect(offerId).toBeGreaterThan(0);
+    expect(session.view.offerId).toBeGreaterThan(0);
 
     session.handleIntent({ type: 'buyBook' }, 'BESTIE');
-    expect(session.view).toMatchObject({ phase: 'offer', bookPending: true });
-    session.approveBook();
-
-    expect(deps.deliverBook).toHaveBeenCalledWith({ code: 'ABC234', shots: [1, 2, 3, 4, 5, 6, 7, 8], frame: 'f5' });
-    expect(session.view).toMatchObject({ phase: 'result', book: true, bookPending: false, link: 'https://x.test/g?s=ABC234' });
+    expect(deps.deliverBook).toHaveBeenCalledWith({ code: 'ABC234', shots: [1, 2, 3, 4, 5, 6, 7, 8], frame: 'b2' });
+    expect(session.view).toMatchObject({ phase: 'result', book: true, link: 'https://x.test/g?s=ABC234' });
+    expect(session.view.thumbs).toEqual([]);
   });
 
-  it('lets the cashier add the book without the guest tapping first', async () => {
+  it('"Nggak dulu" goes to the QR without a book', async () => {
     const { deps, session } = setup();
     await toOffer(session);
-    session.approveBook();
-    expect(deps.deliverBook).toHaveBeenCalledTimes(1);
+    session.handleIntent({ type: 'skipBook' }, 'BESTIE');
+    expect(session.view).toMatchObject({ phase: 'result', book: false });
+    session.handleIntent({ type: 'buyBook' }, 'BESTIE'); // too late
+    expect(deps.deliverBook).not.toHaveBeenCalled();
+  });
+
+  it('moves on to the result when the 30 s offer runs out', async () => {
+    const { deps, session } = setup({}, [OFFER_MS]);
+    await toOffer(session);
+    await vi.waitFor(() => expect(session.view.phase).toBe('result'));
+    expect(session.view.book).toBe(false);
+    expect(deps.deliverBook).not.toHaveBeenCalled();
+  });
+
+  it('still shows the QR when the book file fails', async () => {
+    const { session } = setup({ deliverBook: vi.fn(async () => Promise.reject(new Error('disk full'))) });
+    await toOffer(session);
+    session.buyBook();
     expect(session.view).toMatchObject({ phase: 'result', book: true });
-  });
-
-  it('skips the book when the guest changes their mind or the cashier declines', async () => {
-    const a = setup();
-    await toOffer(a.session);
-    a.session.declineBook(); // nothing to decline yet
-    expect(a.session.view.phase).toBe('offer');
-    a.session.requestBook();
-    a.session.handleIntent({ type: 'skipBook' }, 'BESTIE'); // "Nggak jadi"
-    expect(a.session.view).toMatchObject({ phase: 'result', book: false });
-
-    const b = setup();
-    await toOffer(b.session);
-    b.session.requestBook();
-    b.session.declineBook();
-    expect(b.session.view).toMatchObject({ phase: 'result', book: false });
-    expect(a.deps.deliverBook).not.toHaveBeenCalled();
-    expect(b.deps.deliverBook).not.toHaveBeenCalled();
-  });
-
-  it('moves on to the result when the 30 s offer runs out, but not while the cashier is checking', async () => {
-    /** The offer timer only runs out when the test says so (and only if it wasn't cancelled). */
-    function withOfferClock() {
-      let runOut!: () => void;
-      const gate = new Promise<void>((r) => (runOut = r));
-      const t = setup({
-        sleep: (ms, signal) => {
-          if (ms === OFFER_MS) {
-            return gate.then(() => {
-              if (signal.aborted) throw new Cancelled();
-            });
-          }
-          return ms >= 30_000 ? new Promise(() => {}) : fastSleep(ms, signal);
-        },
-      });
-      return { ...t, runOut };
-    }
-
-    const idle = withOfferClock();
-    await toOffer(idle.session);
-    idle.runOut();
-    await vi.waitFor(() => expect(idle.session.view.phase).toBe('result'));
-
-    const held = withOfferClock();
-    await toOffer(held.session);
-    held.session.requestBook();
-    held.runOut();
-    await new Promise((r) => setTimeout(r, 0));
-    expect(held.session.view).toMatchObject({ phase: 'offer', bookPending: true });
   });
 
   it('ignores book taps outside the offer', async () => {
     const { deps, session } = setup();
     session.handleIntent({ type: 'buyBook' }, 'BESTIE');
-    session.approveBook();
     expect(session.view.phase).toBe('idle');
     await toSelect(session);
     session.handleIntent({ type: 'buyBook' }, 'BESTIE');
-    expect(session.view.bookPending).toBe(false);
+    expect(session.view).toMatchObject({ phase: 'select', book: false });
     expect(deps.deliverBook).not.toHaveBeenCalled();
   });
 
@@ -350,7 +313,7 @@ describe('BoothSession', () => {
     const { deps, session } = setup();
     await toOffer(session);
     session.reset();
-    session.approveBook();
+    session.buyBook();
     expect(session.view.phase).toBe('idle');
     expect(deps.deliverBook).not.toHaveBeenCalled();
   });
