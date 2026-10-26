@@ -3,6 +3,7 @@ import {
   COUNTDOWN_FROM,
   DECK_TIMEOUT_MS,
   DECKS,
+  OFFER_MS,
   PROMPT_MS,
   RESULT_MS,
   REVEAL_MS,
@@ -31,12 +32,21 @@ export interface DeliverResult {
   stripThumb: string | null;
 }
 
+/** The book keychain file: every shot, in the frame the guest rolled. */
+export interface BookInput<Shot> {
+  code: string;
+  shots: Shot[];
+  frame: FrameId;
+}
+
 /** Everything the session needs from the outside world, injected so it can be tested. */
 export interface SessionDeps<Shot> {
   grab(): Shot;
   /** Small preview of a shot for the selection screen (a JPEG data URL). */
   thumb(shot: Shot): string;
   deliver(input: DeliverInput<Shot>): Promise<DeliverResult>;
+  /** Builds and saves the book keychain file once the cashier confirms payment. */
+  deliverBook(input: BookInput<Shot>): Promise<void>;
   newCode(): string;
   random(): number;
   log(text: string, level?: 'info' | 'ok' | 'err'): void;
@@ -47,7 +57,7 @@ const ALL_SHOTS = Array.from({ length: SHOTS }, (_, i) => i);
 
 /**
  * The booth flow as a small state machine:
- * idle → set → deck → capturing → select → reveal → result → idle.
+ * idle → set → deck → capturing → select → reveal → offer → result → idle.
  * Both the Mac console and the tablet just render `view`.
  */
 export class BoothSession<Shot = unknown> {
@@ -56,6 +66,9 @@ export class BoothSession<Shot = unknown> {
   private run = 0;
   /** The session waiting on the selection screen. */
   private taken: { code: string; shots: Shot[]; run: number } | null = null;
+  /** The finished session on the book offer screen, until the result screen opens. */
+  private offering: { code: string; shots: Shot[]; frame: FrameId; run: number; result: DeliverResult } | null =
+    null;
   private readonly sleep: (ms: number, signal: AbortSignal) => Promise<void>;
 
   constructor(
@@ -178,6 +191,12 @@ export class BoothSession<Shot = unknown> {
       case 'cancelUpgrade':
         this.declineUpgrade();
         break;
+      case 'buyBook':
+        this.requestBook();
+        break;
+      case 'skipBook':
+        this.skipBook();
+        break;
       case 'finish':
         if (this.current.phase === 'result') this.reset();
         break;
@@ -189,6 +208,7 @@ export class BoothSession<Shot = unknown> {
     this.nextPhase();
     this.run++;
     this.taken = null;
+    this.offering = null;
     this.current = { ...IDLE_VIEW, flashId: this.current.flashId };
     this.onChange(this.current);
   }
@@ -235,6 +255,73 @@ export class BoothSession<Shot = unknown> {
     if (this.current.phase !== 'select' || !this.current.upgradePending) return;
     this.set({ upgradePending: false });
     this.armSelectTimeout();
+  }
+
+  /* ---------- Book keychain offer ---------- */
+
+  /** Guest tapped "Mau": stop the countdown and wait for the cashier. */
+  requestBook(): void {
+    if (this.current.phase !== 'offer' || this.current.bookPending) return;
+    this.nextPhase();
+    this.deps.log('Tamu mau gantungan kunci buku — konfirmasi pembayaran di Mac', 'ok');
+    this.set({ bookPending: true });
+  }
+
+  /** Guest said no (or changed their mind while waiting): on to the result screen. */
+  skipBook(): void {
+    if (this.current.phase !== 'offer') return;
+    if (this.current.bookPending) this.deps.log('Tamu batal beli buku');
+    this.showResult();
+  }
+
+  /** Cashier: paid. Works with or without the guest tapping "Mau" first. */
+  approveBook(): void {
+    const o = this.offering;
+    if (this.current.phase !== 'offer' || !o) return;
+    this.deps.log('Gantungan kunci buku dikonfirmasi', 'ok');
+    this.set({ book: true });
+    void this.deps
+      .deliverBook({ code: o.code, shots: o.shots, frame: o.frame })
+      .catch((err: unknown) =>
+        this.deps.log(`Gagal membuat file buku: ${err instanceof Error ? err.message : String(err)}`, 'err'),
+      );
+    this.showResult();
+  }
+
+  /** Cashier: not paid. */
+  declineBook(): void {
+    if (this.current.phase !== 'offer' || !this.current.bookPending) return;
+    this.deps.log('Buku dibatalkan kasir');
+    this.showResult();
+  }
+
+  private showOffer(): void {
+    const signal = this.nextPhase();
+    this.set({ phase: 'offer', busy: false, bookPending: false, offerId: this.current.offerId + 1 });
+    this.after(OFFER_MS, signal, () => {
+      this.deps.log('Waktu penawaran buku habis');
+      this.showResult();
+    });
+  }
+
+  private showResult(): void {
+    const o = this.offering;
+    if (!o || o.run !== this.run) return;
+    this.offering = null;
+    const signal = this.nextPhase();
+    this.set({
+      phase: 'result',
+      busy: false,
+      bookPending: false,
+      thumbs: [], // big payload; not needed any more
+      link: o.result.link,
+      stripThumb: o.result.stripThumb,
+      note: o.result.link ? null : 'QR belum tersedia. Tunjukkan kode ini ke operator ya.',
+    });
+    this.after(RESULT_MS, signal, () => {
+      this.deps.log('Layar hasil selesai — kembali ke layar awal');
+      this.reset();
+    });
   }
 
   private armSelectTimeout(): void {
@@ -314,8 +401,7 @@ export class BoothSession<Shot = unknown> {
       pkg,
       selected: chosen,
       upgradePending: false,
-      thumbs: [], // big payload; not needed after this screen
-      busy: true,
+      busy: true, // thumbs stay: the book offer shows them
     });
 
     const minReveal = this.sleep(REVEAL_MS, signal).catch(() => {});
@@ -326,17 +412,8 @@ export class BoothSession<Shot = unknown> {
     const [result] = await Promise.all([delivered, minReveal]);
 
     if (run !== this.run) return; // operator reset during the reveal
-    const resultSignal = this.nextPhase();
-    this.set({
-      phase: 'result',
-      busy: false,
-      link: result.link,
-      stripThumb: result.stripThumb,
-      note: result.link ? null : 'QR belum tersedia. Tunjukkan kode ini ke operator ya.',
-    });
-    this.after(RESULT_MS, resultSignal, () => {
-      this.deps.log('Layar hasil selesai — kembali ke layar awal');
-      this.reset();
-    });
+    // The QR and strip are ready now, but the book offer comes first.
+    this.offering = { code, shots, frame, run, result };
+    this.showOffer();
   }
 }

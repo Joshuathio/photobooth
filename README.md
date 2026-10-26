@@ -13,9 +13,9 @@ file statis di mana saja.
 **Console booth (Mac)** — `index.html`
 - Kamera besar untuk cek framing: webcam Mac, iPhone (Continuity Camera), atau DSLR lewat capture card HDMI
 - **Mirror layar tablet**: salinan persis layar tamu. Klik di mirror = tap di tablet
-- **Pratinjau desain**: tombol Layar awal / Pilih set / Pilih gaya / Foto / Gacha / Hasil + QR untuk melihat tiap layar
+- **Pratinjau desain**: tombol Layar awal / Pilih set / Pilih gaya / Foto / Gacha / Buku / Hasil + QR untuk melihat tiap layar
   dengan data contoh, di Mac dan di tablet sekaligus (klik lagi untuk replay animasi)
-- Hasil terakhir: lembar cetak, frame hasil gacha, QR, download ulang sheet
+- Hasil terakhir: lembar cetak, frame hasil gacha, QR, download ulang sheet, download file buku (juga kalau tamu beli belakangan)
 - Status bar: tablet / kamera / cloud, tahap sesi, gaya default, Mulai, Reset
 - Pengaturan dan log dalam drawer
 - Shortcut keyboard: `Space` mulai, `Esc` reset (atau tutup drawer), `F` layar penuh
@@ -29,7 +29,10 @@ file statis di mana saja.
 - **Upsell versi besar**: tombol "Suka semua?" mencetak semua 8 foto ukuran kecil landscape (3,5 × 2,55 cm), 2 set.
   Tablet menunggu sampai kasir menekan **Sudah bayar, cetak versi besar** di Mac (atau "Batal upgrade")
 - **Gacha frame** dengan animasi kapsul, diundi dari 3 frame di set yang dipilih (peluang sama, 1 dari 3)
-- Hasil: strip, frame, QR code ke galeri, kode sesi
+- **Penawaran gantungan kunci buku (+15rb)** setelah gacha, sebelum QR: layar dengan buku mini berisi foto tamu dan
+  timer 30 detik. "Mau" → tamu bayar ke kasir, kasir tekan **Sudah bayar 15rb, buat buku** di Mac, lalu file
+  `buku-KODE.jpg` (16 foto landscape, 8 foto × 2, sama seperti versi besar) di-download. Timer habis / "Nggak dulu" → hasil
+- Hasil (45 detik): strip, frame, QR code ke galeri, kode sesi
 - Layar penuh otomatis saat disentuh, layar tidak mati selama dipakai
 
 **Proses foto**
@@ -104,7 +107,7 @@ server/booth-link.ts         hub WebSocket Mac ↔ tablet (plugin Vite)
 src/host/                    console Mac (React): controller.ts + App.tsx
 src/guest/                   layar tamu (React): GuestScreen.tsx dipakai tablet dan mirror
 src/booth/
-  session.ts                 alur sesi: layar awal → set → gaya → 8 foto → pilih foto → gacha → hasil (diuji)
+  session.ts                 alur sesi: layar awal → set → gaya → 8 foto → pilih foto → gacha → buku → hasil (diuji)
   gacha.ts                   set frame, daftar frame dan roll() berbobot (diuji)
   preview-stream.ts          kirim preview kamera ke tablet
   camera.ts                  akses kamera (getUserMedia)

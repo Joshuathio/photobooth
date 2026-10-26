@@ -1,5 +1,5 @@
-import { useRef, type CSSProperties, type ReactNode } from 'react';
-import { DECKS, type DeckId } from '../booth/config';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { BOOK_PRICE, BOOK_PRICE_TAG, DECKS, OFFER_MS, type DeckId } from '../booth/config';
 import { FRAME_SETS, frameById, framesInSet, setById, type FrameStyle, type SetId } from '../booth/gacha';
 import type { GuestIntent } from '../shared/link-protocol';
 import type { GuestView } from '../shared/view';
@@ -39,6 +39,7 @@ export function GuestScreen({ view, preview, onIntent }: Props) {
       {view.phase === 'capturing' && <Capture view={view} preview={preview} />}
       {view.phase === 'select' && <Select view={view} onIntent={onIntent} />}
       {view.phase === 'reveal' && <Reveal view={view} />}
+      {view.phase === 'offer' && <BookOffer key={view.offerId} view={view} onIntent={onIntent} />}
       {view.phase === 'result' && <Result view={view} onFinish={() => onIntent({ type: 'finish' })} />}
       {view.preview && <div className="gs-preview-note sticky">Pratinjau desain</div>}
     </div>
@@ -387,11 +388,165 @@ function Reveal({ view }: { view: GuestView }) {
   );
 }
 
+/* ---------- Book keychain offer ---------- */
+/** Whole seconds left, counted locally from when the offer opened. */
+function useSecondsLeft(totalMs: number, running: boolean): number {
+  const start = useRef(Date.now());
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [running]);
+  return Math.max(0, Math.ceil((totalMs - (now - start.current)) / 1000));
+}
+
+/** Countdown ring; the bar drains in one smooth CSS animation over the whole offer. */
+function TimerRing({ size, seconds }: { size: number; seconds: number }) {
+  const r = size / 2 - 9;
+  const c = 2 * Math.PI * r;
+  return (
+    <div className="gs-timer" style={{ width: size, height: size }} role="timer" aria-label={`${seconds} detik lagi`}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+        <circle cx={size / 2} cy={size / 2} r={r} className="gs-timer__track" />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          className="gs-timer__bar"
+          strokeDasharray={c}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          style={{ '--c': c, animationDuration: `${OFFER_MS}ms` } as CSSProperties}
+        />
+      </svg>
+      <span className="gs-timer__num">{seconds}</span>
+      <span className="gs-timer__unit">detik</span>
+    </div>
+  );
+}
+
+/** A photo from the session, or a soft placeholder in design preview. */
+function Thumb({ src, i }: { src: string | undefined; i: number }) {
+  return src ? <img src={src} alt="" /> : <span className={`gs-tile__blank gs-tile__blank--${i % 3}`} />;
+}
+
+/** The little photo book hanging from its key ring. */
+function BookKeychain({ view }: { view: GuestView }) {
+  const cover = view.selected[0] ?? 0;
+  const others = [0, 1, 2, 3, 4, 5, 6, 7].filter((i) => i !== cover);
+  return (
+    <div className="gs-kc" aria-hidden="true">
+      <div className="gs-kc__swing">
+        <span className="gs-kc__loose gs-kc__loose--1">
+          <Thumb src={view.thumbs[others[2]]} i={1} />
+        </span>
+        <span className="gs-kc__loose gs-kc__loose--2">
+          <Thumb src={view.thumbs[others[5]]} i={2} />
+        </span>
+        <div className="gs-kc__ring" />
+        <div className="gs-kc__chain">
+          <i />
+          <i />
+          <i />
+        </div>
+        <div className="gs-kc__book">
+          <div className="gs-kc__pages" />
+          <div className="gs-kc__cover paper">
+            <span className="gs-kc__eyelet" />
+            <span className="gs-kc__photo">
+              <Thumb src={view.thumbs[cover]} i={0} />
+            </span>
+            <span className="gs-kc__title">Dearly</span>
+            <span className="gs-kc__sub">
+              {view.totalShots} foto · {view.code}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div className="gs-kc__price">
+        <Burst size={190} className="gs-kc__burst" />
+        <span className="gs-kc__price-text sticker">{BOOK_PRICE_TAG}</span>
+      </div>
+    </div>
+  );
+}
+
+function BookOffer({ view, onIntent }: { view: GuestView; onIntent(intent: GuestIntent): void }) {
+  const seconds = useSecondsLeft(OFFER_MS, !view.bookPending);
+  const total = Math.round(OFFER_MS / 1000);
+  return (
+    <div className={`gs-offer ${view.bookPending ? 'is-pending' : ''}`}>
+      <Star size={40} className="gs-offer__s1" />
+      <Star size={26} className="gs-offer__s2" />
+      <Star size={34} className="gs-offer__s3" />
+      <BookKeychain view={view} />
+
+      <div className="gs-sheet paper gs-offer__card">
+        {view.bookPending ? (
+          <>
+            <h1 className="gs-title sticker gs-offer__title gs-offer__title--pay">Bayar ke kasir ya!</h1>
+            <p className="gs-offer__lede">
+              Bilang kode kamu ke kasir dan bayar <b>{BOOK_PRICE}</b>. Setelah dikonfirmasi, gantungan kunci bukumu
+              langsung kami buat.
+            </p>
+            <span className="gs-offer__label">Kode kamu</span>
+            <span className="tag gs-offer__code">{view.code}</span>
+            <p className="gs-offer__wait">
+              <span className="gs-offer__dots">
+                <i />
+                <i />
+                <i />
+              </span>
+              Nunggu konfirmasi kasir…
+            </p>
+            <button type="button" className="gs-offer__no" onClick={() => onIntent({ type: 'skipBook' })}>
+              Nggak jadi
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="gs-offer__kicker sticker sticker--script">Satu lagi…</p>
+            <h1 className="gs-title sticker gs-offer__title">Mau versi buku?</h1>
+            <p className="gs-offer__lede">
+              Semua {view.totalShots} fotomu dijadiin <b>buku mini gantungan kunci</b>. Pas buat digantung di tas atau
+              kunci motor.
+            </p>
+            <div className="gs-offer__thumbs" aria-hidden="true">
+              {Array.from({ length: view.totalShots }, (_, i) => (
+                <span key={i}>
+                  <Thumb src={view.thumbs[i]} i={i} />
+                </span>
+              ))}
+            </div>
+            <div className="gs-offer__row">
+              <TimerRing size={132} seconds={seconds} />
+              <div className="gs-offer__expire">
+                <span className="gs-offer__left">Cuma {total} detik!</span>
+                <span className="gs-offer__note">Kalau waktunya habis, penawarannya hilang dan fotomu langsung muncul.</span>
+              </div>
+            </div>
+            <div className="gs-offer__actions">
+              <button type="button" className="gs-offer__yes tag" onClick={() => onIntent({ type: 'buyBook' })}>
+                Mau, tambah buku!
+              </button>
+              <button type="button" className="gs-offer__no" onClick={() => onIntent({ type: 'skipBook' })}>
+                Nggak dulu
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Result ---------- */
 function Result({ view, onFinish }: { view: GuestView; onFinish(): void }) {
   const frame = frameById(view.frame ?? 'f1');
   const qr = useQr(view.link);
-  const printing = view.pkg === 'big' ? 'Versi besarmu lagi dicetak.' : 'Strip-nya lagi dicetak.';
+  const printing =
+    (view.pkg === 'big' ? 'Versi besarmu lagi dicetak' : 'Strip-nya lagi dicetak') +
+    (view.book ? ', gantungan kunci bukumu juga lagi dibuat.' : '.');
   return (
     <div className={`gs-result ${view.pkg === 'big' ? 'gs-result--big' : ''}`}>
       <div className="gs-result__strip">

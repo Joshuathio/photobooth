@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { DECKS, type DeckId } from '../booth/config';
+import { BOOK_PRICE, DECKS, type DeckId } from '../booth/config';
 import { FRAME_SETS, FRAMES, frameById, framesInSet, odds, setById } from '../booth/gacha';
 import { hasCloud } from '../booth/settings';
 import { GuestScreen, STAGE_H, STAGE_W } from '../guest/GuestScreen';
@@ -15,7 +15,7 @@ interface PanelProps {
   ctl: BoothController;
 }
 
-const PREVIEW_PHASES: Phase[] = ['idle', 'set', 'deck', 'capturing', 'select', 'reveal', 'result'];
+const PREVIEW_PHASES: Phase[] = ['idle', 'set', 'deck', 'capturing', 'select', 'reveal', 'offer', 'result'];
 
 function phaseText(v: GuestView): string {
   switch (v.phase) {
@@ -33,6 +33,8 @@ function phaseText(v: GuestView): string {
         : `Tamu memilih foto (${v.selected.length}/${v.pickCount})`;
     case 'reveal':
       return v.busy ? 'Gacha + menyiapkan foto…' : 'Gacha';
+    case 'offer':
+      return v.bookPending ? `Tamu mau buku — konfirmasi bayar ${BOOK_PRICE}` : 'Penawaran gantungan kunci buku';
     case 'result':
       return `Hasil · ${v.code ?? ''}`;
   }
@@ -183,6 +185,7 @@ function ResultPanel({ s, ctl }: PanelProps) {
               <span className={`pkg-chip ${r.pkg === 'big' ? 'is-big' : ''}`}>
                 {r.pkg === 'big' ? 'Besar · 8 foto kecil × 2' : 'Strip · 4 foto'}
               </span>
+              {r.book && <span className="pkg-chip is-big">+ Buku</span>}
             </div>
             {r.qr ? (
               <img className="result__qr" src={r.qr} alt="QR code galeri" />
@@ -192,6 +195,9 @@ function ResultPanel({ s, ctl }: PanelProps) {
             <div className="result__actions">
               <button type="button" className="btn btn--small" onClick={() => ctl.redownloadSheet()}>
                 Download ulang sheet
+              </button>
+              <button type="button" className="btn btn--small" onClick={() => void ctl.redownloadBook()}>
+                {r.book ? 'Download ulang buku' : 'Download file buku'}
               </button>
               {r.link && (
                 <a className="btn btn--small btn--ghost" href={r.link} target="_blank" rel="noopener">
@@ -248,6 +254,18 @@ function StatusBar({ s, ctl, onOpen }: PanelProps & { onOpen(d: Drawer): void })
           {s.live.upgradePending && (
             <button type="button" className="btn" onClick={() => ctl.declineUpgrade()}>
               Batal upgrade
+            </button>
+          )}
+        </div>
+      )}
+      {s.live.phase === 'offer' && (
+        <div className={`bar__upgrade ${s.live.bookPending ? 'is-pending' : ''}`}>
+          <button type="button" className="btn btn--primary" onClick={() => ctl.approveBook()}>
+            {s.live.bookPending ? `Sudah bayar ${BOOK_PRICE}, buat buku` : 'Tambah buku'}
+          </button>
+          {s.live.bookPending && (
+            <button type="button" className="btn" onClick={() => ctl.declineBook()}>
+              Batal buku
             </button>
           )}
         </div>

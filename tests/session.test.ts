@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { SELECT_TIMEOUT_MS, SHOTS, STRIP_SHOTS } from '../src/booth/config';
+import { OFFER_MS, RESULT_MS, SELECT_TIMEOUT_MS, SHOTS, STRIP_SHOTS } from '../src/booth/config';
 import { BoothSession, type SessionDeps } from '../src/booth/session';
 import { Cancelled } from '../src/booth/timing';
 import type { GuestView, Phase } from '../src/shared/view';
@@ -17,6 +17,7 @@ function setup(overrides: Partial<SessionDeps<number>> = {}, fireTimeouts: numbe
     grab: vi.fn(() => ++shotNo),
     thumb: (shot) => `thumb-${shot}`,
     deliver: vi.fn(async () => ({ link: 'https://x.test/g?s=ABC234', stripThumb: 'data:x' })),
+    deliverBook: vi.fn(async () => {}),
     newCode: () => 'ABC234',
     random: () => 0.6, // → the 2nd of 3 frames in the set (Set B → 'f5')
     log: () => {},
@@ -71,7 +72,7 @@ describe('BoothSession', () => {
     expect(session.view.selected).toEqual([1, 3, 4, 6]); // kept in shooting order
     await session.confirm();
 
-    expect(phases()).toEqual<Phase[]>(['set', 'deck', 'capturing', 'select', 'reveal', 'result']);
+    expect(phases()).toEqual<Phase[]>(['set', 'deck', 'capturing', 'select', 'reveal', 'offer']);
     expect(deps.deliver).toHaveBeenCalledWith({
       code: 'ABC234',
       shots: [1, 2, 3, 4, 5, 6, 7, 8],
@@ -79,7 +80,11 @@ describe('BoothSession', () => {
       pkg: 'standard',
       frame: 'f5',
     });
-    expect(session.view).toMatchObject({ phase: 'result', pkg: 'standard', link: 'https://x.test/g?s=ABC234' });
+    // The book offer comes before the QR, and still has the photos for its preview.
+    expect(session.view).toMatchObject({ phase: 'offer', pkg: 'standard', link: null, bookPending: false });
+    expect(session.view.thumbs).toHaveLength(SHOTS);
+    session.handleIntent({ type: 'skipBook' }, 'BESTIE');
+    expect(session.view).toMatchObject({ phase: 'result', pkg: 'standard', link: 'https://x.test/g?s=ABC234', book: false });
     expect(session.view.thumbs).toEqual([]); // dropped once no longer needed
   });
 
@@ -116,7 +121,7 @@ describe('BoothSession', () => {
     expect(deps.deliver).toHaveBeenCalledWith(
       expect.objectContaining({ pkg: 'big', chosen: [0, 1, 2, 3, 4, 5, 6, 7] }),
     );
-    expect(session.view).toMatchObject({ phase: 'result', pkg: 'big', upgradePending: false });
+    expect(session.view).toMatchObject({ phase: 'offer', pkg: 'big', upgradePending: false });
   });
 
   it('goes back to picking when the upgrade is cancelled', async () => {
@@ -127,7 +132,7 @@ describe('BoothSession', () => {
     expect(session.view.upgradePending).toBe(false);
     for (const i of [0, 2, 4, 6]) session.handleIntent({ type: 'toggle', index: i }, 'BESTIE');
     session.handleIntent({ type: 'confirm' }, 'BESTIE');
-    await vi.waitFor(() => expect(session.view.phase).toBe('result'));
+    await vi.waitFor(() => expect(session.view.phase).toBe('offer'));
     expect(deps.deliver).toHaveBeenCalledWith(expect.objectContaining({ pkg: 'standard', chosen: [0, 2, 4, 6] }));
   });
 
@@ -166,6 +171,7 @@ describe('BoothSession', () => {
     await toSelect(session);
     for (const i of [0, 1, 2, 3]) session.toggle(i);
     await session.confirm();
+    session.skipBook();
     expect(session.view.phase).toBe('result');
     expect(session.view.link).toBeNull();
     expect(session.view.note).toMatch(/QR/);
@@ -186,6 +192,9 @@ describe('BoothSession', () => {
     expect(session.view.deck).toBe('COUPLE');
     for (const i of [0, 1, 2, 3]) session.toggle(i);
     await session.confirm();
+    session.handleIntent({ type: 'finish' }, 'BESTIE'); // ignored on the book offer
+    expect(session.view.phase).toBe('offer');
+    session.handleIntent({ type: 'skipBook' }, 'BESTIE');
     session.handleIntent({ type: 'finish' }, 'BESTIE');
     expect(session.view.phase).toBe('idle');
   });
@@ -238,6 +247,111 @@ describe('BoothSession', () => {
     for (const i of [0, 1, 2, 3]) session.toggle(i);
     await session.confirm();
     expect(deps.deliver).toHaveBeenCalledWith(expect.objectContaining({ frame }));
-    expect(session.view).toMatchObject({ phase: 'result', set: 'C', frame });
+    expect(session.view).toMatchObject({ phase: 'offer', set: 'C', frame });
+  });
+
+  /* ---------- Book keychain offer ---------- */
+
+  /** Runs a session up to the book offer. */
+  async function toOffer(session: BoothSession<number>) {
+    await toSelect(session);
+    for (const i of [1, 3, 5, 7]) session.toggle(i);
+    await session.confirm();
+  }
+
+  it('sells the book: guest taps "Mau", cashier confirms, the book file is made', async () => {
+    const { deps, session } = setup();
+    await toOffer(session);
+    const offerId = session.view.offerId;
+    expect(offerId).toBeGreaterThan(0);
+
+    session.handleIntent({ type: 'buyBook' }, 'BESTIE');
+    expect(session.view).toMatchObject({ phase: 'offer', bookPending: true });
+    session.approveBook();
+
+    expect(deps.deliverBook).toHaveBeenCalledWith({ code: 'ABC234', shots: [1, 2, 3, 4, 5, 6, 7, 8], frame: 'f5' });
+    expect(session.view).toMatchObject({ phase: 'result', book: true, bookPending: false, link: 'https://x.test/g?s=ABC234' });
+  });
+
+  it('lets the cashier add the book without the guest tapping first', async () => {
+    const { deps, session } = setup();
+    await toOffer(session);
+    session.approveBook();
+    expect(deps.deliverBook).toHaveBeenCalledTimes(1);
+    expect(session.view).toMatchObject({ phase: 'result', book: true });
+  });
+
+  it('skips the book when the guest changes their mind or the cashier declines', async () => {
+    const a = setup();
+    await toOffer(a.session);
+    a.session.declineBook(); // nothing to decline yet
+    expect(a.session.view.phase).toBe('offer');
+    a.session.requestBook();
+    a.session.handleIntent({ type: 'skipBook' }, 'BESTIE'); // "Nggak jadi"
+    expect(a.session.view).toMatchObject({ phase: 'result', book: false });
+
+    const b = setup();
+    await toOffer(b.session);
+    b.session.requestBook();
+    b.session.declineBook();
+    expect(b.session.view).toMatchObject({ phase: 'result', book: false });
+    expect(a.deps.deliverBook).not.toHaveBeenCalled();
+    expect(b.deps.deliverBook).not.toHaveBeenCalled();
+  });
+
+  it('moves on to the result when the 30 s offer runs out, but not while the cashier is checking', async () => {
+    /** The offer timer only runs out when the test says so (and only if it wasn't cancelled). */
+    function withOfferClock() {
+      let runOut!: () => void;
+      const gate = new Promise<void>((r) => (runOut = r));
+      const t = setup({
+        sleep: (ms, signal) => {
+          if (ms === OFFER_MS) {
+            return gate.then(() => {
+              if (signal.aborted) throw new Cancelled();
+            });
+          }
+          return ms >= 30_000 ? new Promise(() => {}) : fastSleep(ms, signal);
+        },
+      });
+      return { ...t, runOut };
+    }
+
+    const idle = withOfferClock();
+    await toOffer(idle.session);
+    idle.runOut();
+    await vi.waitFor(() => expect(idle.session.view.phase).toBe('result'));
+
+    const held = withOfferClock();
+    await toOffer(held.session);
+    held.session.requestBook();
+    held.runOut();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(held.session.view).toMatchObject({ phase: 'offer', bookPending: true });
+  });
+
+  it('ignores book taps outside the offer', async () => {
+    const { deps, session } = setup();
+    session.handleIntent({ type: 'buyBook' }, 'BESTIE');
+    session.approveBook();
+    expect(session.view.phase).toBe('idle');
+    await toSelect(session);
+    session.handleIntent({ type: 'buyBook' }, 'BESTIE');
+    expect(session.view.bookPending).toBe(false);
+    expect(deps.deliverBook).not.toHaveBeenCalled();
+  });
+
+  it('keeps the result screen up for 45 s', () => {
+    expect(OFFER_MS).toBe(30_000);
+    expect(RESULT_MS).toBe(45_000);
+  });
+
+  it('a reset on the book offer drops the session', async () => {
+    const { deps, session } = setup();
+    await toOffer(session);
+    session.reset();
+    session.approveBook();
+    expect(session.view.phase).toBe('idle');
+    expect(deps.deliverBook).not.toHaveBeenCalled();
   });
 });

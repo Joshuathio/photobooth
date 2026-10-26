@@ -16,7 +16,7 @@ import {
 import type { DeckId } from '../booth/config';
 import { frameById, secureRandom, type FrameId } from '../booth/gacha';
 import { PreviewStream } from '../booth/preview-stream';
-import { BoothSession, type DeliverInput, type DeliverResult } from '../booth/session';
+import { BoothSession, type BookInput, type DeliverInput, type DeliverResult } from '../booth/session';
 import { hasCloud, loadSettings, saveSettings, type Settings } from '../booth/settings';
 import { galleryLink, photoPublicId, publicId, uploadUnsigned, type AssetKey } from '../shared/cloudinary';
 import { Link } from '../shared/link';
@@ -36,6 +36,8 @@ export interface LastResult {
   code: string;
   frame: FrameId;
   pkg: PrintPackage;
+  /** The book keychain was paid for (its file is in Downloads). */
+  book: boolean;
   sheetUrl: string;
   gifUrl: string;
   link: string | null;
@@ -82,6 +84,8 @@ export class BoothController {
   private snapshot: HostSnapshot;
   private logId = 0;
   private lastSheet: { blob: Blob; code: string; pkg: PrintPackage } | null = null;
+  /** Photos of the last session, so the book file can be made again on request. */
+  private lastShots: BookInput<HTMLCanvasElement> | null = null;
   private objectUrls: string[] = [];
 
   constructor() {
@@ -107,6 +111,7 @@ export class BoothController {
         grab: () => this.camera!.grab(this.snapshot.settings.mirror),
         thumb: (shot) => shotThumbnail(shot),
         deliver: (input) => this.deliver(input),
+        deliverBook: (input) => this.deliverBook(input),
         newCode: generateSessionCode,
         random: secureRandom,
         log: (text, level) => this.log(text, level),
@@ -291,6 +296,26 @@ export class BoothController {
     this.session.declineUpgrade();
   }
 
+  /** Cashier confirmed payment for the book keychain. */
+  approveBook(): void {
+    this.session.approveBook();
+  }
+
+  /** Not paid: skip the book and show the result screen. */
+  declineBook(): void {
+    this.session.declineBook();
+  }
+
+  /** Builds the book file for the last session again (e.g. the guest buys it later). */
+  async redownloadBook(): Promise<void> {
+    if (!this.lastShots) return;
+    try {
+      await this.saveBook(this.lastShots);
+    } catch (err) {
+      this.log(`Gagal membuat file buku: ${err instanceof Error ? err.message : String(err)}`, 'err');
+    }
+  }
+
   /** Shows a guest screen with sample data on the mirror and the tablet. */
   setDesignPhase(phase: Phase | null): void {
     if (phase && this.snapshot.live.phase !== 'idle') return;
@@ -312,6 +337,22 @@ export class BoothController {
   }
 
   /* ---------- Delivery ---------- */
+  /** Book keychain: the 16-photo landscape layout (8 photos × 2), turned for the printer. */
+  private async deliverBook(input: BookInput<HTMLCanvasElement>): Promise<void> {
+    await this.saveBook(input);
+    const r = this.snapshot.lastResult;
+    if (r && r.code === input.code) this.patch({ lastResult: { ...r, book: true } });
+  }
+
+  private async saveBook({ code, shots, frame }: BookInput<HTMLCanvasElement>): Promise<void> {
+    await ensureFonts();
+    const info = { code, eventName: this.snapshot.settings.eventName, date: new Date() };
+    const blob = await toJpeg(printForBig(buildBigPrint(shots, info, frameById(frame))));
+    const name = `buku-${code}.jpg`;
+    download(blob, name);
+    this.log(`Download ${name} (gantungan kunci buku)`, 'ok');
+  }
+
   private async deliver({
     code,
     shots,
@@ -347,7 +388,8 @@ export class BoothController {
     const sheetUrl = this.objectUrl(sheetBlob);
     const gifUrl = this.objectUrl(gifBlob);
     this.lastSheet = { blob: sheetBlob, code, pkg };
-    this.patch({ lastResult: { code, frame, pkg, sheetUrl, gifUrl, link: null, qr: null } });
+    this.lastShots = { code, shots, frame };
+    this.patch({ lastResult: { code, frame, pkg, book: false, sheetUrl, gifUrl, link: null, qr: null } });
 
     // The print sheet always lands on this Mac for the printer, on top of any cloud copy.
     // Both sheets are two identical halves, so both print with the same 2x6 cut.
@@ -411,7 +453,8 @@ export class BoothController {
       return { link: null, stripThumb };
     }
     const qr = await QRCode.toDataURL(link, { margin: 1, width: 360 });
-    this.patch({ lastResult: { code, frame, pkg, sheetUrl, gifUrl, link, qr } });
+    const prev = this.snapshot.lastResult;
+    this.patch({ lastResult: { code, frame, pkg, book: prev?.code === code && prev.book, sheetUrl, gifUrl, link, qr } });
     return { link, stripThumb };
   }
 

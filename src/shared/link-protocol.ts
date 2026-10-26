@@ -26,6 +26,10 @@ export type GuestIntent =
   | { type: 'upgrade' }
   /** Changed their mind about the big print. */
   | { type: 'cancelUpgrade' }
+  /** Wants the book keychain (operator confirms payment). */
+  | { type: 'buyBook' }
+  /** "Nggak dulu" on the offer, or "Nggak jadi" while waiting for the cashier. */
+  | { type: 'skipBook' }
   | { type: 'finish' };
 
 export type LinkMessage =

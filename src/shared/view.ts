@@ -5,7 +5,7 @@ import type { FrameId, SetId } from '../booth/gacha';
  * Everything the guest screen needs to draw itself. The Mac sends this to the
  * tablet on every change, and renders the same thing in its tablet mirror.
  */
-export type Phase = 'idle' | 'set' | 'deck' | 'capturing' | 'select' | 'reveal' | 'result';
+export type Phase = 'idle' | 'set' | 'deck' | 'capturing' | 'select' | 'reveal' | 'offer' | 'result';
 
 /** Standard: 4 chosen photos on a strip (printed twice, cut). Big: all 8 on one uncut sheet. */
 export type PrintPackage = 'standard' | 'big';
@@ -42,6 +42,12 @@ export interface GuestView {
   pkg: PrintPackage;
   /** Guest asked for the big print; waiting for the operator to confirm payment. */
   upgradePending: boolean;
+  /** Guest wants the book keychain; waiting for the operator to confirm payment. */
+  bookPending: boolean;
+  /** The book keychain was paid for in this session. */
+  book: boolean;
+  /** Bumps each time the book offer opens, so screens restart their 30 s countdown. */
+  offerId: number;
   /** True when the operator is previewing a screen with sample data. */
   preview: boolean;
 }
@@ -66,6 +72,9 @@ export const IDLE_VIEW: GuestView = {
   pickCount: STRIP_SHOTS,
   pkg: 'standard',
   upgradePending: false,
+  bookPending: false,
+  book: false,
+  offerId: 0,
   preview: false,
 };
 
@@ -76,6 +85,7 @@ export const PHASE_LABELS: Record<Phase, string> = {
   capturing: 'Foto',
   select: 'Pilih foto',
   reveal: 'Gacha',
+  offer: 'Buku',
   result: 'Hasil + QR',
 };
 
@@ -91,9 +101,10 @@ export function sampleView(phase: Phase): GuestView {
     shot: phase === 'capturing' ? 1 : 0,
     prompt: phase === 'capturing' ? DECKS[deck].prompts[1] : null,
     count: phase === 'capturing' ? 3 : null,
-    frame: phase === 'reveal' || phase === 'result' ? 'f5' : null,
-    code: phase === 'result' ? 'K7XP2Q' : null,
-    selected: phase === 'select' ? [0, 2, 5] : [],
+    frame: phase === 'reveal' || phase === 'offer' || phase === 'result' ? 'f5' : null,
+    code: phase === 'offer' || phase === 'result' ? 'K7XP2Q' : null,
+    selected: phase === 'select' ? [0, 2, 5] : phase === 'offer' ? [0, 2, 5, 7] : [],
+    offerId: phase === 'offer' ? Date.now() : 0,
     link: phase === 'result' ? 'https://example.com/gallery.html?s=K7XP2Q' : null,
   };
 }

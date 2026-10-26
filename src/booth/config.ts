@@ -152,4 +152,9 @@ export type DeckId = keyof typeof DECKS;
 export const DECK_TIMEOUT_MS = 60_000; // nobody picks a deck → back to the attract screen
 export const SELECT_TIMEOUT_MS = 45_000; // nobody picks → the first photos are used
 export const REVEAL_MS = 3_400; // minimum time the gacha reveal stays on screen
-export const RESULT_MS = 30_000; // result + QR screen, then back to attract
+export const OFFER_MS = 30_000; // book keychain offer after the gacha, then on to the result
+export const RESULT_MS = 45_000; // result + QR screen, then back to attract
+
+/** Book keychain upsell: all 8 photos as a mini book on a key ring. */
+export const BOOK_PRICE = '15rb';
+export const BOOK_PRICE_TAG = '+15K';
