@@ -1,4 +1,5 @@
 import type { DeckId } from '../booth/config';
+import type { SetId } from '../booth/gacha';
 import type { GuestView } from './view';
 
 /** WebSocket path on the dev server that connects the Mac and the tablet. */
@@ -9,7 +10,13 @@ export type Role = 'host' | 'guest';
 /** Taps on the guest screen, sent to the Mac. */
 export type GuestIntent =
   | { type: 'start' }
+  /** Highlight a frame set on the set screen. */
+  | { type: 'set'; set: SetId }
+  /** Use the highlighted set and go on to the pose picker. */
+  | { type: 'confirmSet' }
   | { type: 'deck'; deck: DeckId }
+  /** From the pose picker back to the set screen. */
+  | { type: 'back' }
   | { type: 'cancel' }
   /** Pick or unpick a photo on the selection screen. */
   | { type: 'toggle'; index: number }

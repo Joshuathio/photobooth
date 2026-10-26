@@ -13,7 +13,7 @@ file statis di mana saja.
 **Console booth (Mac)** — `index.html`
 - Kamera besar untuk cek framing: webcam Mac, iPhone (Continuity Camera), atau DSLR lewat capture card HDMI
 - **Mirror layar tablet**: salinan persis layar tamu. Klik di mirror = tap di tablet
-- **Pratinjau desain**: tombol Layar awal / Pilih gaya / Foto / Gacha / Hasil + QR untuk melihat tiap layar
+- **Pratinjau desain**: tombol Layar awal / Pilih set / Pilih gaya / Foto / Gacha / Hasil + QR untuk melihat tiap layar
   dengan data contoh, di Mac dan di tablet sekaligus (klik lagi untuk replay animasi)
 - Hasil terakhir: lembar cetak, frame hasil gacha, QR, download ulang sheet
 - Status bar: tablet / kamera / cloud, tahap sesi, gaya default, Mulai, Reset
@@ -21,13 +21,14 @@ file statis di mana saja.
 - Shortcut keyboard: `Space` mulai, `Esc` reset (atau tutup drawer), `F` layar penuh
 
 **Layar tamu (tablet, landscape)** — `guest.html`
-- Layar awal dengan preview kamera live dan peluang tiap frame
-- Pilih gaya: Bestie, Couple, Chaos, Corporate, Anak Kuliahan
+- Layar awal dengan preview kamera live dan isi tiap set frame
+- **Pilih set frame**: Set A (frame 1–3), Set B (frame 4–6), Set C (frame 7–9). Tamu tap satu set lalu "Pakai Set …"
+- Pilih gaya: Bestie, Couple, Chaos, Corporate, Anak Kuliahan (tombol "Kembali" balik ke pilih set)
 - **8 foto** dengan arahan pose, countdown, dan flash (8 arahan berbeda per gaya)
 - **Pilih 4 foto** favorit untuk strip (tap di tablet). Kalau 45 detik tidak selesai, otomatis dipakai foto paling awal
 - **Upsell versi besar**: tombol "Suka semua?" mencetak semua 8 foto ukuran kecil landscape (3,5 × 2,55 cm), 2 set.
   Tablet menunggu sampai kasir menekan **Sudah bayar, cetak versi besar** di Mac (atau "Batal upgrade")
-- **Gacha frame** dengan animasi kapsul: Hitam, Putih, Ungu, Coklat (peluang sama, 25%)
+- **Gacha frame** dengan animasi kapsul, diundi dari 3 frame di set yang dipilih (peluang sama, 1 dari 3)
 - Hasil: strip, frame, QR code ke galeri, kode sesi
 - Layar penuh otomatis saat disentuh, layar tidak mati selama dipakai
 
@@ -103,8 +104,8 @@ server/booth-link.ts         hub WebSocket Mac ↔ tablet (plugin Vite)
 src/host/                    console Mac (React): controller.ts + App.tsx
 src/guest/                   layar tamu (React): GuestScreen.tsx dipakai tablet dan mirror
 src/booth/
-  session.ts                 alur sesi: layar awal → gaya → 8 foto → pilih foto → gacha → hasil (diuji)
-  gacha.ts                   daftar frame dan roll() berbobot (diuji)
+  session.ts                 alur sesi: layar awal → set → gaya → 8 foto → pilih foto → gacha → hasil (diuji)
+  gacha.ts                   set frame, daftar frame dan roll() berbobot (diuji)
   preview-stream.ts          kirim preview kamera ke tablet
   camera.ts                  akses kamera (getUserMedia)
   compose.ts                 gambar strip, sheet, story, GIF
@@ -129,13 +130,15 @@ Teks panjang baru tinggal diberi class `long-text`. Untuk ganti font, ubah bagia
 
 ## Mengubah gacha
 
-Frame dan peluangnya ada di `FRAMES` di `src/booth/gacha.ts`. Sekarang semua `weight: 1` (peluang sama).
-Untuk tier rarity, ubah bobotnya, misalnya 60/30/10. Layar tamu dan pengaturan otomatis menampilkan
-persentase yang baru.
+Set ada di `FRAME_SETS` dan frame di `FRAMES` (`src/booth/gacha.ts`). Tiap frame punya `set: 'A' | 'B' | 'C'`;
+gacha hanya mengundi frame dari set yang dipilih tamu. Nama set ("Set A" dst.) cukup diganti di `label`.
+Sekarang semua `weight: 1` (peluang sama). Untuk tier rarity, ubah bobotnya, misalnya 60/30/10; pengaturan di Mac
+otomatis menampilkan persentase yang baru.
 
 ## Mengganti desain frame
 
-Desain strip saat ini berupa warna polos dari frame gacha (`drawStrip` di `src/booth/compose.ts`). Setelah
+Desain strip saat ini berupa warna + pola (titik, garis, gingham, taburan) dari frame gacha (`paintFrame` dan
+`drawStrip` di `src/booth/compose.ts`). Warna dan polanya masih contoh. Setelah
 desainer mengekspor PNG 600×1800 dengan lubang transparan untuk foto, ganti bagian itu dengan
 `ctx.drawImage(framePng, ...)`.
 

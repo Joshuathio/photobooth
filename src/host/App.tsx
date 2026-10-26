@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { DECKS, type DeckId } from '../booth/config';
-import { FRAMES, frameById, odds } from '../booth/gacha';
+import { FRAME_SETS, FRAMES, frameById, framesInSet, odds, setById } from '../booth/gacha';
 import { hasCloud } from '../booth/settings';
 import { GuestScreen, STAGE_H, STAGE_W } from '../guest/GuestScreen';
 import { PHASE_LABELS, type GuestView, type Phase } from '../shared/view';
@@ -15,14 +15,16 @@ interface PanelProps {
   ctl: BoothController;
 }
 
-const PREVIEW_PHASES: Phase[] = ['idle', 'deck', 'capturing', 'select', 'reveal', 'result'];
+const PREVIEW_PHASES: Phase[] = ['idle', 'set', 'deck', 'capturing', 'select', 'reveal', 'result'];
 
 function phaseText(v: GuestView): string {
   switch (v.phase) {
     case 'idle':
       return 'Siap — menunggu tamu';
+    case 'set':
+      return v.set ? `Tamu sedang pilih set (${setById(v.set).label})` : 'Tamu sedang pilih set frame';
     case 'deck':
-      return 'Tamu sedang pilih gaya';
+      return `Tamu sedang pilih gaya${v.set ? ` · ${setById(v.set).label}` : ''}`;
     case 'capturing':
       return `Foto ${Math.min(v.shot + 1, v.totalShots)}/${v.totalShots}${v.deck ? ` · ${DECKS[v.deck].label}` : ''}`;
     case 'select':
@@ -208,7 +210,7 @@ function FrameChip({ id }: { id: (typeof FRAMES)[number]['id'] }) {
   const f = frameById(id);
   return (
     <span className="frame-chip" style={{ background: f.bg, color: f.ink }}>
-      Frame {f.name}
+      {setById(f.set).label} · {f.name}
     </span>
   );
 }
@@ -300,7 +302,6 @@ function DrawerShell({ title, onClose, children }: { title: string; onClose(): v
 
 function SettingsForm({ s, ctl }: PanelProps) {
   const set = ctl.updateSettings.bind(ctl);
-  const pct = odds(FRAMES);
   return (
     <>
       <section>
@@ -358,16 +359,25 @@ function SettingsForm({ s, ctl }: PanelProps) {
 
       <section>
         <h3>Gacha</h3>
-        <ul className="odds">
-          {FRAMES.map((f, i) => (
-            <li key={f.id}>
-              <span className="swatch" style={{ background: f.bg }} />
-              {f.name}
-              <span>{Math.round(pct[i])}%</span>
-            </li>
-          ))}
-        </ul>
-        <p className="hint">Ubah bobot di src/booth/gacha.ts.</p>
+        {FRAME_SETS.map((set) => {
+          const frames = framesInSet(set.id);
+          const pct = odds(frames);
+          return (
+            <div key={set.id} className="odds-set">
+              <h4>{set.label}</h4>
+              <ul className="odds">
+                {frames.map((f, i) => (
+                  <li key={f.id}>
+                    <span className="swatch" style={{ background: f.bg }} />
+                    {f.name}
+                    <span>{Math.round(pct[i])}%</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+        <p className="hint">Tamu pilih set dulu, lalu frame diundi dari set itu. Ubah bobot di src/booth/gacha.ts.</p>
       </section>
 
       <section>

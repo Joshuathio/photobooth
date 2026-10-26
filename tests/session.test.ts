@@ -18,7 +18,7 @@ function setup(overrides: Partial<SessionDeps<number>> = {}, fireTimeouts: numbe
     thumb: (shot) => `thumb-${shot}`,
     deliver: vi.fn(async () => ({ link: 'https://x.test/g?s=ABC234', stripThumb: 'data:x' })),
     newCode: () => 'ABC234',
-    random: () => 0.6, // → 'ungu'
+    random: () => 0.6, // → the 2nd of 3 frames in the set (Set B → 'f5')
     log: () => {},
     sleep: (ms, signal) =>
       ms >= 30_000 && !fireTimeouts.includes(ms) ? new Promise(() => {}) : fastSleep(ms, signal),
@@ -30,8 +30,16 @@ function setup(overrides: Partial<SessionDeps<number>> = {}, fireTimeouts: numbe
   return { deps, session, views, phases };
 }
 
-async function toSelect(session: BoothSession<number>, deck: 'BESTIE' | 'COUPLE' = 'COUPLE') {
+/** Attract → Set B → pose picker. */
+function toDeck(session: BoothSession<number>) {
   session.begin();
+  session.pickSet('B');
+  session.confirmSet();
+  expect(session.view.phase).toBe('deck');
+}
+
+async function toSelect(session: BoothSession<number>, deck: 'BESTIE' | 'COUPLE' = 'COUPLE') {
+  toDeck(session);
   await session.chooseDeck(deck);
   expect(session.view.phase).toBe('select');
 }
@@ -63,13 +71,13 @@ describe('BoothSession', () => {
     expect(session.view.selected).toEqual([1, 3, 4, 6]); // kept in shooting order
     await session.confirm();
 
-    expect(phases()).toEqual<Phase[]>(['deck', 'capturing', 'select', 'reveal', 'result']);
+    expect(phases()).toEqual<Phase[]>(['set', 'deck', 'capturing', 'select', 'reveal', 'result']);
     expect(deps.deliver).toHaveBeenCalledWith({
       code: 'ABC234',
       shots: [1, 2, 3, 4, 5, 6, 7, 8],
       chosen: [1, 3, 4, 6],
       pkg: 'standard',
-      frame: 'ungu',
+      frame: 'f5',
     });
     expect(session.view).toMatchObject({ phase: 'result', pkg: 'standard', link: 'https://x.test/g?s=ABC234' });
     expect(session.view.thumbs).toEqual([]); // dropped once no longer needed
@@ -125,7 +133,7 @@ describe('BoothSession', () => {
 
   it('fills the strip with the earliest photos when nobody finishes picking', async () => {
     const { deps, session } = setup({}, [SELECT_TIMEOUT_MS]);
-    session.begin();
+    toDeck(session);
     // The timeout fires as soon as the selection screen opens, so pick inside the same tick.
     const run = session.chooseDeck('CHAOS');
     await vi.waitFor(() => expect(deps.deliver).toHaveBeenCalled());
@@ -135,7 +143,7 @@ describe('BoothSession', () => {
 
   it('cancels a capture on reset without taking photos', async () => {
     const { deps, session } = setup();
-    session.begin();
+    toDeck(session);
     const run = session.chooseDeck('CHAOS');
     session.reset();
     await run;
@@ -166,10 +174,13 @@ describe('BoothSession', () => {
   it('handles the start, cancel and finish taps', async () => {
     const { session } = setup();
     session.handleIntent({ type: 'start' }, 'BESTIE');
-    expect(session.view.phase).toBe('deck');
+    expect(session.view.phase).toBe('set');
     session.handleIntent({ type: 'cancel' }, 'BESTIE');
     expect(session.view.phase).toBe('idle');
+    // Space on the Mac: start → Set A (nothing highlighted) → default deck.
     session.quickStart('COUPLE');
+    session.quickStart('COUPLE');
+    expect(session.view).toMatchObject({ phase: 'deck', set: 'A' });
     session.quickStart('COUPLE');
     await vi.waitFor(() => expect(session.view.phase).toBe('select'));
     expect(session.view.deck).toBe('COUPLE');
@@ -177,5 +188,56 @@ describe('BoothSession', () => {
     await session.confirm();
     session.handleIntent({ type: 'finish' }, 'BESTIE');
     expect(session.view.phase).toBe('idle');
+  });
+
+  /* ---------- Frame sets ---------- */
+
+  it('opens the set picker first and only moves on once a set is chosen', () => {
+    const { session } = setup();
+    session.handleIntent({ type: 'start' }, 'BESTIE');
+    expect(session.view).toMatchObject({ phase: 'set', set: null });
+    session.handleIntent({ type: 'confirmSet' }, 'BESTIE');
+    expect(session.view.phase).toBe('set');
+    session.handleIntent({ type: 'set', set: 'C' }, 'BESTIE');
+    session.handleIntent({ type: 'set', set: 'A' }, 'BESTIE'); // changed their mind
+    expect(session.view.set).toBe('A');
+    session.handleIntent({ type: 'confirmSet' }, 'BESTIE');
+    expect(session.view).toMatchObject({ phase: 'deck', set: 'A' });
+  });
+
+  it('ignores unknown sets and set taps outside the set screen', () => {
+    const { session } = setup();
+    session.begin();
+    session.handleIntent({ type: 'set', set: 'Z' as never }, 'BESTIE');
+    expect(session.view.set).toBeNull();
+    session.pickSet('B');
+    session.confirmSet();
+    session.pickSet('C');
+    expect(session.view).toMatchObject({ phase: 'deck', set: 'B' });
+  });
+
+  it('goes back from the pose picker to the set picker, keeping the set', () => {
+    const { session } = setup();
+    toDeck(session);
+    session.handleIntent({ type: 'back' }, 'BESTIE');
+    expect(session.view).toMatchObject({ phase: 'set', set: 'B' });
+    session.handleIntent({ type: 'cancel' }, 'BESTIE');
+    expect(session.view).toMatchObject({ phase: 'idle', set: null });
+  });
+
+  it.each([
+    [0, 'f7'],
+    [0.5, 'f8'],
+    [0.999, 'f9'],
+  ])('only rolls frames from the chosen set (random %s → %s)', async (r, frame) => {
+    const { deps, session } = setup({ random: () => r });
+    session.begin();
+    session.pickSet('C');
+    session.confirmSet();
+    await session.chooseDeck('BESTIE');
+    for (const i of [0, 1, 2, 3]) session.toggle(i);
+    await session.confirm();
+    expect(deps.deliver).toHaveBeenCalledWith(expect.objectContaining({ frame }));
+    expect(session.view).toMatchObject({ phase: 'result', set: 'C', frame });
   });
 });

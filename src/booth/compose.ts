@@ -71,8 +71,63 @@ export async function ensureFonts(): Promise<void> {
   }
 }
 
+/** Pattern repeat on the print: 60 px ≈ 5 mm at 300 dpi. */
+const PATTERN_UNIT = 60;
+
 /**
- * Plain-colour frame art from the gacha roll. Swap for drawImage(framePNG, ...)
+ * Frame colour plus its pattern (dots, stripes, gingham or sprinkles), the
+ * same marks the guest saw on the set picker.
+ */
+export function paintFrame(
+  ctx: CanvasRenderingContext2D,
+  frame: FrameStyle,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  unit = PATTERN_UNIT,
+): void {
+  ctx.fillStyle = frame.bg;
+  ctx.fillRect(x, y, w, h);
+  if (frame.pattern === 'none') return;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  ctx.fillStyle = frame.patternInk;
+  const dots = (step: number, r: number, off: number) => {
+    ctx.beginPath();
+    for (let py = y + off; py < y + h + r; py += step) {
+      for (let px = x + off; px < x + w + r; px += step) {
+        ctx.moveTo(px + r, py);
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+      }
+    }
+    ctx.fill();
+  };
+  switch (frame.pattern) {
+    case 'dots':
+      dots(unit / 2, unit * 0.1, unit / 4);
+      break;
+    case 'sprinkle':
+      dots(unit, unit * 0.12, unit / 2);
+      dots(unit / 2, unit * 0.055, unit / 8);
+      break;
+    case 'stripes':
+      for (let px = x; px < x + w; px += unit / 2) ctx.fillRect(px, y, unit * 0.2, h);
+      break;
+    case 'check':
+      // Gingham: vertical and horizontal bands; where they cross the colour doubles up.
+      for (let px = x; px < x + w; px += unit) ctx.fillRect(px, y, unit / 2, h);
+      for (let py = y; py < y + h; py += unit) ctx.fillRect(x, py, w, unit / 2);
+      break;
+  }
+  ctx.restore();
+}
+
+/**
+ * Frame art from the gacha roll (colour + pattern). Swap for drawImage(framePNG, ...)
  * once the designers export 600x1800 PNGs with transparent photo cutouts.
  */
 function drawStrip(
@@ -82,8 +137,7 @@ function drawStrip(
   info: StripInfo,
   frame: FrameStyle,
 ): void {
-  ctx.fillStyle = frame.bg;
-  ctx.fillRect(ox, 0, STRIP_W, SHEET_H);
+  paintFrame(ctx, frame, ox, 0, STRIP_W, SHEET_H);
 
   shots.forEach((shot, i) => {
     const x = ox + MARGIN_X;
@@ -143,8 +197,7 @@ export function buildBigPrint(
   frame: FrameStyle,
 ): HTMLCanvasElement {
   const [c, ctx] = canvas(BIG_W, BIG_H);
-  ctx.fillStyle = frame.bg;
-  ctx.fillRect(0, 0, BIG_W, BIG_H);
+  paintFrame(ctx, frame, 0, 0, BIG_W, BIG_H);
   const halfH = BIG_H / 2;
   const date = info.date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
   const fx = BIG_FOOTER_X + (BIG_W - BIG_FOOTER_X) / 2;
@@ -200,8 +253,7 @@ export function buildAllSheet(
   frame: FrameStyle,
 ): HTMLCanvasElement {
   const [c, ctx] = canvas(SHEET_W, SHEET_H);
-  ctx.fillStyle = frame.bg;
-  ctx.fillRect(0, 0, SHEET_W, SHEET_H);
+  paintFrame(ctx, frame, 0, 0, SHEET_W, SHEET_H);
   shots.forEach((shot, i) => {
     const x = ALL_MARGIN + (i % ALL_COLS) * (ALL_CELL_W + ALL_GAP);
     const y = ALL_MARGIN + Math.floor(i / ALL_COLS) * (ALL_CELL_H + ALL_GAP);

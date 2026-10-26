@@ -1,17 +1,19 @@
 import { DECKS, SHOTS, STRIP_SHOTS, type DeckId } from '../booth/config';
-import type { FrameId } from '../booth/gacha';
+import type { FrameId, SetId } from '../booth/gacha';
 
 /**
  * Everything the guest screen needs to draw itself. The Mac sends this to the
  * tablet on every change, and renders the same thing in its tablet mirror.
  */
-export type Phase = 'idle' | 'deck' | 'capturing' | 'select' | 'reveal' | 'result';
+export type Phase = 'idle' | 'set' | 'deck' | 'capturing' | 'select' | 'reveal' | 'result';
 
 /** Standard: 4 chosen photos on a strip (printed twice, cut). Big: all 8 on one uncut sheet. */
 export type PrintPackage = 'standard' | 'big';
 
 export interface GuestView {
   phase: Phase;
+  /** Frame set the guest picked (highlighted on the set screen, then fixed for the session). */
+  set: SetId | null;
   deck: DeckId | null;
   /** Index of the current shot (0-based) while capturing. */
   shot: number;
@@ -46,6 +48,7 @@ export interface GuestView {
 
 export const IDLE_VIEW: GuestView = {
   phase: 'idle',
+  set: null,
   deck: null,
   shot: 0,
   totalShots: SHOTS,
@@ -68,6 +71,7 @@ export const IDLE_VIEW: GuestView = {
 
 export const PHASE_LABELS: Record<Phase, string> = {
   idle: 'Layar awal',
+  set: 'Pilih set',
   deck: 'Pilih gaya',
   capturing: 'Foto',
   select: 'Pilih foto',
@@ -82,11 +86,12 @@ export function sampleView(phase: Phase): GuestView {
     ...IDLE_VIEW,
     phase,
     preview: true,
-    deck: phase === 'idle' ? null : deck,
+    set: phase === 'idle' ? null : 'B',
+    deck: phase === 'idle' || phase === 'set' ? null : deck,
     shot: phase === 'capturing' ? 1 : 0,
     prompt: phase === 'capturing' ? DECKS[deck].prompts[1] : null,
     count: phase === 'capturing' ? 3 : null,
-    frame: phase === 'reveal' || phase === 'result' ? 'ungu' : null,
+    frame: phase === 'reveal' || phase === 'result' ? 'f5' : null,
     code: phase === 'result' ? 'K7XP2Q' : null,
     selected: phase === 'select' ? [0, 2, 5] : [],
     link: phase === 'result' ? 'https://example.com/gallery.html?s=K7XP2Q' : null,

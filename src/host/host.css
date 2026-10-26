@@ -185,14 +185,15 @@ body {
   margin: 10px;
 }
 .seg {
-  display: flex;
-  flex-wrap: wrap;
+  /* Two even rows: Live plus one button per guest screen. */
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
   gap: 5px;
   margin-top: 18px;
 }
 .seg button {
-  flex: 1 1 auto;
-  padding: 7px 9px;
+  padding: 7px 6px;
+  white-space: nowrap;
   border-radius: 999px;
   border: none;
   background: var(--tan);
@@ -201,7 +202,7 @@ body {
   font-weight: 800;
   cursor: pointer;
 }
-.seg button:hover:not(:disabled) {
+.seg button:hover:not(:disabled):not([aria-pressed='true']) {
   background: var(--tan-deep);
 }
 .seg button[aria-pressed='true'] {
@@ -452,6 +453,16 @@ kbd {
 .check input {
   width: auto;
   accent-color: var(--red);
+}
+.odds-set + .odds-set {
+  margin-top: 12px;
+}
+.odds-set h4 {
+  margin: 0 0 6px;
+  font-family: var(--font-chunky);
+  font-weight: 400;
+  font-size: 15px;
+  color: var(--red);
 }
 .odds {
   list-style: none;

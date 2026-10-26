@@ -1,6 +1,6 @@
 import { useRef, type CSSProperties, type ReactNode } from 'react';
 import { DECKS, type DeckId } from '../booth/config';
-import { FRAMES, frameById, odds, type FrameStyle } from '../booth/gacha';
+import { FRAME_SETS, frameById, framesInSet, setById, type FrameStyle, type SetId } from '../booth/gacha';
 import type { GuestIntent } from '../shared/link-protocol';
 import type { GuestView } from '../shared/view';
 import { Burst, Confetti, RoughFilter, Star } from '../ui/Decor';
@@ -28,10 +28,12 @@ export function GuestScreen({ view, preview, onIntent }: Props) {
     <div className={`gs ${view.phase === 'idle' ? 'sky-bg' : 'gingham'} gs--${view.phase}`}>
       <RoughFilter />
       {view.phase === 'idle' && <Attract preview={preview} onStart={() => onIntent({ type: 'start' })} />}
+      {view.phase === 'set' && <SetPicker chosen={view.set} onIntent={onIntent} />}
       {view.phase === 'deck' && (
         <DeckPicker
+          set={view.set}
           onPick={(deck) => onIntent({ type: 'deck', deck })}
-          onCancel={() => onIntent({ type: 'cancel' })}
+          onBack={() => onIntent({ type: 'back' })}
         />
       )}
       {view.phase === 'capturing' && <Capture view={view} preview={preview} />}
@@ -44,13 +46,18 @@ export function GuestScreen({ view, preview, onIntent }: Props) {
 }
 
 function frameVars(frame: FrameStyle): CSSProperties {
-  return { '--f-bg': frame.bg, '--f-border': frame.border, '--f-ink': frame.ink } as CSSProperties;
+  return {
+    '--f-bg': frame.bg,
+    '--f-border': frame.border,
+    '--f-ink': frame.ink,
+    '--f-pc': frame.patternInk,
+  } as CSSProperties;
 }
 
-/** Tiny strip with four photo holes, painted in a frame's colours. */
+/** Tiny strip with four photo holes, painted in a frame's colours and pattern. */
 function MiniStrip({ frame, className = '' }: { frame: FrameStyle; className?: string }) {
   return (
-    <span className={`gs-mini ${className}`} style={frameVars(frame)} aria-hidden="true">
+    <span className={`gs-mini pat-${frame.pattern} ${className}`} style={frameVars(frame)} aria-hidden="true">
       <i />
       <i />
       <i />
@@ -71,7 +78,6 @@ function Logo({ className = '' }: { className?: string }) {
 
 /* ---------- Attract ---------- */
 function Attract({ preview, onStart }: { preview: ReactNode; onStart(): void }) {
-  const pct = odds(FRAMES);
   return (
     <div className="gs-attract" onClick={onStart}>
       <Confetti />
@@ -98,15 +104,16 @@ function Attract({ preview, onStart }: { preview: ReactNode; onStart(): void }) 
       </div>
 
       <aside className="gs-odds sticky">
-        <p className="gs-odds__title">Frame yang bisa keluar</p>
+        <p className="gs-odds__title">Pilih set, frame-nya diundi</p>
         <ul>
-          {FRAMES.map((f, i) => (
-            <li key={f.id}>
-              <MiniStrip frame={f} />
-              <span>
-                <b>{f.name}</b>
-                {Math.round(pct[i])}%
+          {FRAME_SETS.map((set) => (
+            <li key={set.id}>
+              <span className="gs-odds__strips">
+                {framesInSet(set.id).map((f) => (
+                  <MiniStrip key={f.id} frame={f} />
+                ))}
               </span>
+              <b>{set.label}</b>
             </li>
           ))}
         </ul>
@@ -115,18 +122,103 @@ function Attract({ preview, onStart }: { preview: ReactNode; onStart(): void }) 
   );
 }
 
+/* ---------- Set picker ---------- */
+/** "Frame 5" → "5". */
+const frameNo = (frame: FrameStyle) => frame.name.replace(/\D+/g, '');
+
+/** One frame in a set card: a little strip with its number badge. */
+function SetStrip({ frame, slot }: { frame: FrameStyle; slot: number }) {
+  return (
+    <span className={`gs-setstrip gs-setstrip--${slot} pat-${frame.pattern}`} style={frameVars(frame)}>
+      <i />
+      <i />
+      <i />
+      <i />
+      <b>Dearly</b>
+      <em>{frameNo(frame)}</em>
+    </span>
+  );
+}
+
+function SetPicker({ chosen, onIntent }: { chosen: SetId | null; onIntent(intent: GuestIntent): void }) {
+  return (
+    <div className="gs-sheet paper gs-sets">
+      <Star size={46} className="gs-sets__star1" />
+      <Star size={30} className="gs-sets__star2" />
+      <Star size={24} className="gs-sets__star3" />
+      <button type="button" className="gs-back" onClick={() => onIntent({ type: 'cancel' })}>
+        Batal
+      </button>
+      <h1 className="gs-title sticker gs-sets__title">Pilih set frame-mu</h1>
+      <p className="gs-sets__sub">Frame-nya tetap diundi, tapi cuma dari set yang kamu pilih.</p>
+
+      <ul className="gs-sets__cards">
+        {FRAME_SETS.map((set) => {
+          const frames = framesInSet(set.id);
+          const on = chosen === set.id;
+          return (
+            <li key={set.id}>
+              <button
+                type="button"
+                className={`gs-setcard ${on ? 'is-on' : ''} ${chosen && !on ? 'is-off' : ''}`}
+                style={{ '--tint': set.tint } as CSSProperties}
+                aria-pressed={on}
+                onClick={() => onIntent({ type: 'set', set: set.id })}
+              >
+                <span className="tape gs-setcard__tape" />
+                <span className="gs-setcard__tag tag">{set.label}</span>
+                {on && (
+                  <span className="gs-setcard__check" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="30" height="30">
+                      <path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                )}
+                <span className="gs-setcard__fan" aria-hidden="true">
+                  {frames.map((f, i) => (
+                    <SetStrip key={f.id} frame={f} slot={i} />
+                  ))}
+                </span>
+                <span className="gs-setcard__foot">
+                  <span className="gs-setcard__names">Frame {frames.map(frameNo).join(' · ')}</span>
+                  <span className="gs-setcard__odds">tiap frame 1 dari {frames.length}</span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="gs-sets__bar">
+        <span className="gs-sets__hint sticky">
+          {chosen ? `Kamu bakal dapet salah satu dari 3 frame ${setById(chosen).label}` : 'Tap salah satu set dulu ya'}
+        </span>
+        <button
+          type="button"
+          className={`gs-sets__go tag ${chosen ? '' : 'is-idle'}`}
+          aria-disabled={!chosen}
+          onClick={() => chosen && onIntent({ type: 'confirmSet' })}
+        >
+          {chosen ? `Pakai ${setById(chosen).label}` : 'Pakai set ini'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /* ---------- Deck picker ---------- */
 /** Poses previewed on each card; the rest are a surprise. */
 const CARD_POSES = 3;
 
-function DeckPicker({ onPick, onCancel }: { onPick(deck: DeckId): void; onCancel(): void }) {
+function DeckPicker({ set, onPick, onBack }: { set: SetId | null; onPick(deck: DeckId): void; onBack(): void }) {
   return (
     <div className="gs-sheet paper gs-deck">
       <Star size={46} className="gs-deck__star1" />
       <Star size={30} className="gs-deck__star2" />
-      <button type="button" className="gs-back" onClick={onCancel}>
-        Batal
+      <button type="button" className="gs-back" onClick={onBack}>
+        Kembali
       </button>
+      {set && <span className="gs-deck__set sticky">{setById(set).label}</span>}
       <h1 className="gs-title sticker">Mau gaya apa?</h1>
       <p className="gs-deck__sub">Pilih satu, nanti tiap foto ada arahan pose-nya.</p>
       <ul className="gs-deck__cards">
@@ -270,7 +362,7 @@ function Select({ view, onIntent }: { view: GuestView; onIntent(intent: GuestInt
 
 /* ---------- Gacha reveal ---------- */
 function Reveal({ view }: { view: GuestView }) {
-  const frame = frameById(view.frame ?? 'putih');
+  const frame = frameById(view.frame ?? 'f1');
   return (
     <div className="gs-reveal">
       <Burst size={220} className="gs-reveal__burst1" />
@@ -283,10 +375,11 @@ function Reveal({ view }: { view: GuestView }) {
       <div className="gs-reveal__prize">
         <MiniStrip frame={frame} className="gs-mini--prize" />
         <div className="gs-reveal__text">
-          <p className="sticker sticker--script">Kamu dapet frame</p>
+          <p className="sticker sticker--script">Kamu dapet</p>
           <h1 className="gs-reveal__name sticker" style={frameVars(frame)}>
             {frame.name}
           </h1>
+          <p className="gs-reveal__set tag">dari {setById(frame.set).label}</p>
         </div>
       </div>
       <p className="gs-reveal__status paper">{view.busy ? 'Lagi nyiapin fotomu…' : 'Siap!'}</p>
@@ -296,7 +389,7 @@ function Reveal({ view }: { view: GuestView }) {
 
 /* ---------- Result ---------- */
 function Result({ view, onFinish }: { view: GuestView; onFinish(): void }) {
-  const frame = frameById(view.frame ?? 'putih');
+  const frame = frameById(view.frame ?? 'f1');
   const qr = useQr(view.link);
   const printing = view.pkg === 'big' ? 'Versi besarmu lagi dicetak.' : 'Strip-nya lagi dicetak.';
   return (
@@ -334,7 +427,7 @@ function Result({ view, onFinish }: { view: GuestView; onFinish(): void }) {
             <span className="tag gs-result__code">{view.code}</span>
             <span className="gs-result__label">Frame</span>
             <span className="gs-result__frame" style={frameVars(frame)}>
-              {frame.name}
+              {setById(frame.set).label} · {frame.name}
             </span>
           </div>
         </div>

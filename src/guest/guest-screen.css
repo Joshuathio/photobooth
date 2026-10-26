@@ -90,7 +90,38 @@
   flex: 1;
   background: color-mix(in srgb, var(--f-ink) 32%, transparent);
 }
+/* Frame patterns, matching paintFrame() on the print. --pat sets the repeat size. */
+.gs .pat-dots {
+  background-image: radial-gradient(var(--f-pc) calc(var(--pat, 12px) * 0.2), transparent calc(var(--pat, 12px) * 0.24));
+  background-size: var(--pat, 12px) var(--pat, 12px);
+}
+.gs .pat-stripes {
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--f-pc) 0 calc(var(--pat, 12px) * 0.4),
+    transparent calc(var(--pat, 12px) * 0.4) var(--pat, 12px)
+  );
+}
+.gs .pat-check {
+  background-image:
+    linear-gradient(90deg, var(--f-pc) 50%, transparent 50%),
+    linear-gradient(var(--f-pc) 50%, transparent 50%);
+  background-size: calc(var(--pat, 12px) * 1.2) calc(var(--pat, 12px) * 1.2);
+}
+.gs .pat-sprinkle {
+  background-image:
+    radial-gradient(var(--f-pc) calc(var(--pat, 12px) * 0.24), transparent calc(var(--pat, 12px) * 0.28)),
+    radial-gradient(var(--f-pc) calc(var(--pat, 12px) * 0.11), transparent calc(var(--pat, 12px) * 0.15));
+  background-size:
+    calc(var(--pat, 12px) * 1.5) calc(var(--pat, 12px) * 1.5),
+    calc(var(--pat, 12px) * 0.75) calc(var(--pat, 12px) * 0.75);
+  background-position:
+    0 0,
+    calc(var(--pat, 12px) * 0.3) calc(var(--pat, 12px) * 0.45);
+}
+
 .gs-mini--prize {
+  --pat: 22px;
   width: 138px;
   height: 414px;
   padding: 14px 14px 64px;
@@ -102,6 +133,7 @@
   transform: rotate(-5deg);
 }
 .gs-mini--result {
+  --pat: 34px;
   width: 228px;
   height: 684px;
   padding: 18px 18px 110px;
@@ -233,29 +265,255 @@
 }
 .gs-odds__title {
   font-size: 18px;
-  font-weight: 900;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 .gs-odds ul {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px 10px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 .gs-odds li {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 15px;
-  font-weight: 700;
-}
-.gs-odds li span {
-  display: flex;
   flex-direction: column;
-  line-height: 1.15;
+  align-items: center;
+  gap: 8px;
 }
 .gs-odds li b {
+  font-size: 18px;
+  font-weight: 400;
+}
+.gs-odds__strips {
+  display: flex;
+  gap: 3px;
+}
+.gs-odds__strips .gs-mini {
+  --pat: 7px;
+  width: 22px;
+  height: 66px;
+  padding: 3px 3px 11px;
+  gap: 2px;
+}
+.gs-odds__strips .gs-mini:nth-child(1) {
+  transform: rotate(-6deg) translateY(2px);
+}
+.gs-odds__strips .gs-mini:nth-child(3) {
+  transform: rotate(6deg) translateY(2px);
+}
+
+/* ---------- Set picker ---------- */
+.gs-sets {
+  inset: 40px 56px;
+  padding: 36px 44px 30px;
+  display: flex;
+  flex-direction: column;
+}
+.gs-sets__star1 {
+  left: -20px;
+  bottom: 120px;
+  transform: rotate(-16deg);
+}
+.gs-sets__star2 {
+  right: 36px;
+  top: 30px;
+  transform: rotate(12deg);
+}
+.gs-sets__star3 {
+  right: 92px;
+  top: 72px;
+  transform: rotate(-8deg);
+  opacity: 0.8;
+}
+.gs-sets__title {
+  font-size: 70px;
+}
+.gs-sets__sub {
+  margin: 10px 0 36px;
+  text-align: center;
+  font-size: 23px;
+}
+.gs-sets__cards {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
+  padding: 0 6px;
+}
+.gs-setcard {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 20px;
+  background-color: var(--tint);
+  background-image: var(--grain), radial-gradient(rgba(255, 255, 255, 0.55) 2px, transparent 2.5px);
+  background-size:
+    auto,
+    22px 22px;
+  box-shadow:
+    0 3px 0 rgba(58, 42, 38, 0.12),
+    0 10px 20px rgba(34, 52, 92, 0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease,
+    filter 0.15s ease;
+}
+.gs-sets__cards li:nth-child(1) .gs-setcard {
+  transform: rotate(-1.2deg);
+}
+.gs-sets__cards li:nth-child(2) .gs-setcard {
+  transform: rotate(0.8deg) translateY(4px);
+}
+.gs-sets__cards li:nth-child(3) .gs-setcard {
+  transform: rotate(-0.6deg);
+}
+.gs-sets__cards li .gs-setcard.is-on {
+  transform: translateY(-6px) rotate(-1.5deg) scale(1.02);
+  box-shadow:
+    0 0 0 5px var(--cream),
+    0 0 0 10px var(--red),
+    0 22px 40px rgba(34, 52, 92, 0.3);
+  z-index: 2;
+}
+.gs-setcard.is-off {
+  opacity: 0.55;
+  filter: saturate(0.7);
+}
+.gs-setcard__tape {
+  top: -14px;
+  left: 50%;
+  width: 120px;
+  height: 34px;
+  transform: translateX(-50%) rotate(-3deg);
+}
+.gs-setcard__tag {
+  position: absolute;
+  top: 24px;
+  left: 20px;
+  z-index: 3;
+  font-size: 28px;
+  transform: rotate(-4deg);
+}
+.gs-setcard__check {
+  position: absolute;
+  top: -16px;
+  right: -14px;
+  z-index: 3;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--red);
+  color: var(--cream);
+  display: grid;
+  place-items: center;
+  box-shadow:
+    0 0 0 4px var(--cream),
+    0 6px 12px rgba(34, 52, 92, 0.3);
+}
+.gs-setcard__fan {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  margin-top: 78px;
+}
+.gs-setstrip {
+  --pat: 12px;
+  position: absolute;
+  left: 50%;
+  top: 18px;
+  width: 82px;
+  height: 228px;
+  margin-left: -41px;
+  padding: 8px 8px 0;
+  border-radius: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background-color: var(--f-bg);
+  box-shadow:
+    0 0 0 1.5px rgba(58, 42, 38, 0.18),
+    0 8px 16px rgba(34, 52, 92, 0.25);
+}
+.gs-setstrip--0 {
+  transform: translateX(-74px) rotate(-11deg);
+}
+.gs-setstrip--1 {
+  transform: translateY(-10px);
+  z-index: 1;
+}
+.gs-setstrip--2 {
+  transform: translateX(74px) rotate(11deg);
+}
+.gs-setstrip i {
+  height: 36px;
+  flex: none;
+  border-radius: 1px;
+  background: color-mix(in srgb, var(--f-ink) 26%, #fff 30%);
+}
+.gs-setstrip b {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-script);
+  font-weight: 400;
+  font-size: 21px;
+  color: var(--f-ink);
+}
+.gs-setstrip em {
+  position: absolute;
+  bottom: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--cream);
+  color: var(--red);
+  font-style: normal;
+  font-size: 17px;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 2.5px var(--red);
+}
+.gs-setcard__foot {
+  width: 100%;
+  padding: 0 22px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.gs-setcard__names {
+  font-size: 21px;
+}
+.gs-setcard__odds {
+  font-family: var(--font-text);
+  font-size: 15px;
+  font-weight: 700;
+  opacity: 0.75;
+}
+.gs-sets__bar {
+  margin-top: 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.gs-sets__hint {
+  padding: 10px 18px 11px;
   font-size: 19px;
-  font-weight: 900;
+  color: var(--red);
+  transform: rotate(-1.5deg);
+}
+.gs-sets__go {
+  font-size: 32px;
+  padding: 0.36em 0.9em 0.42em;
+  transform: rotate(-2deg);
+}
+.gs-sets__go.is-idle {
+  opacity: 0.4;
+  box-shadow: none;
+  cursor: default;
 }
 
 /* ---------- Deck picker ---------- */
@@ -277,6 +535,8 @@
 }
 .gs-back {
   position: absolute;
+  /* Above the full-width title, which would otherwise swallow the tap. */
+  z-index: 2;
   top: 28px;
   left: 30px;
   padding: 8px 20px 9px;
@@ -284,6 +544,15 @@
   border-radius: 999px;
   font-size: 19px;
   font-weight: 800;
+}
+.gs-deck__set {
+  position: absolute;
+  top: 30px;
+  right: 90px;
+  padding: 8px 16px 9px;
+  font-size: 20px;
+  color: var(--red);
+  transform: rotate(3deg);
 }
 .gs-back:active {
   background: var(--tan);
@@ -754,9 +1023,14 @@
 .gs-reveal__text p {
   font-size: 66px;
 }
+.gs-reveal__text p.gs-reveal__set {
+  margin-top: 18px;
+  font-size: 30px;
+  transform: rotate(-2deg);
+}
 .gs-reveal__name {
   margin-top: 4px;
-  font-size: 150px;
+  font-size: 128px;
   color: var(--f-bg);
   --stroke: 0.12em;
 }

@@ -11,7 +11,7 @@ import {
   STRIP_SHOTS,
   type DeckId,
 } from './config';
-import { FRAMES, roll, type FrameId } from './gacha';
+import { framesInSet, isSetId, roll, setById, type FrameId, type SetId } from './gacha';
 import { Cancelled, sleep as realSleep } from './timing';
 import type { GuestIntent } from '../shared/link-protocol';
 import { IDLE_VIEW, type GuestView, type PrintPackage } from '../shared/view';
@@ -47,7 +47,7 @@ const ALL_SHOTS = Array.from({ length: SHOTS }, (_, i) => i);
 
 /**
  * The booth flow as a small state machine:
- * idle → deck → capturing → select → reveal → result → idle.
+ * idle → set → deck → capturing → select → reveal → result → idle.
  * Both the Mac console and the tablet just render `view`.
  */
 export class BoothSession<Shot = unknown> {
@@ -86,16 +86,39 @@ export class BoothSession<Shot = unknown> {
     this.sleep(ms, signal).then(then, () => {});
   }
 
-  /** Attract screen → deck picker. */
+  /** Attract screen → set picker. */
   begin(): void {
     if (this.current.phase !== 'idle') return;
-    const signal = this.nextPhase();
     this.current = { ...IDLE_VIEW, flashId: this.current.flashId };
-    this.set({ phase: 'deck' });
+    this.showPicker('set');
+  }
+
+  /** Set or pose picker, with a timeout back to the attract screen if nobody taps. */
+  private showPicker(phase: 'set' | 'deck'): void {
+    const signal = this.nextPhase();
+    this.set({ phase });
     this.after(DECK_TIMEOUT_MS, signal, () => {
-      this.deps.log('Tidak ada yang pilih gaya — kembali ke layar awal');
+      this.deps.log(`Tidak ada yang pilih ${phase === 'set' ? 'set' : 'gaya'} — kembali ke layar awal`);
       this.reset();
     });
+  }
+
+  /** Highlight a set on the set screen. The guest still has to confirm it. */
+  pickSet(set: SetId): void {
+    if (this.current.phase !== 'set' || !isSetId(set)) return;
+    this.set({ set });
+  }
+
+  /** Highlighted set → pose picker. */
+  confirmSet(): void {
+    if (this.current.phase !== 'set' || !this.current.set) return;
+    this.showPicker('deck');
+  }
+
+  /** Pose picker → back to the set screen, keeping the set highlighted. */
+  backToSet(): void {
+    if (this.current.phase !== 'deck') return;
+    this.showPicker('set');
   }
 
   /** Deck picked → take the photos, then show the selection screen. */
@@ -104,10 +127,23 @@ export class BoothSession<Shot = unknown> {
     return this.capture(deck);
   }
 
-  /** Mac shortcut (Space): start, or pick the default deck if already on the picker. */
+  /**
+   * Mac shortcut (Space): start, then confirm the set (Set A if none is
+   * highlighted), then pick the default deck.
+   */
   quickStart(defaultDeck: DeckId): void {
-    if (this.current.phase === 'idle') this.begin();
-    else if (this.current.phase === 'deck') void this.chooseDeck(defaultDeck);
+    switch (this.current.phase) {
+      case 'idle':
+        this.begin();
+        break;
+      case 'set':
+        if (!this.current.set) this.pickSet('A');
+        this.confirmSet();
+        break;
+      case 'deck':
+        void this.chooseDeck(defaultDeck);
+        break;
+    }
   }
 
   handleIntent(intent: GuestIntent, defaultDeck: DeckId): void {
@@ -115,11 +151,20 @@ export class BoothSession<Shot = unknown> {
       case 'start':
         this.begin();
         break;
+      case 'set':
+        this.pickSet(intent.set);
+        break;
+      case 'confirmSet':
+        this.confirmSet();
+        break;
       case 'deck':
         void this.chooseDeck(DECKS[intent.deck] ? intent.deck : defaultDeck);
         break;
+      case 'back':
+        this.backToSet();
+        break;
       case 'cancel':
-        if (this.current.phase === 'deck') this.reset();
+        if (this.current.phase === 'set' || this.current.phase === 'deck') this.reset();
         break;
       case 'toggle':
         this.toggle(intent.index);
@@ -210,8 +255,9 @@ export class BoothSession<Shot = unknown> {
     const run = ++this.run;
     const code = this.deps.newCode();
     const shots: Shot[] = [];
-    this.deps.log(`Sesi ${code} · gaya ${DECKS[deck].label}`);
-    this.set({ phase: 'capturing', deck, code, shot: 0, prompt: null, count: null });
+    const set = this.current.set ?? 'A';
+    this.deps.log(`Sesi ${code} · ${setById(set).label} · gaya ${DECKS[deck].label}`);
+    this.set({ phase: 'capturing', set, deck, code, shot: 0, prompt: null, count: null });
 
     try {
       for (let i = 0; i < SHOTS; i++) {
@@ -258,8 +304,10 @@ export class BoothSession<Shot = unknown> {
     const signal = this.nextPhase();
 
     // Roll first: the frame is part of the print, so it has to be known before composing.
-    const frame = roll(FRAMES, this.deps.random()).id;
-    this.deps.log(`Gacha: frame ${frame} · ${pkg === 'big' ? 'versi besar' : 'strip'}`, 'ok');
+    // Only frames from the set the guest picked are in the pool.
+    const pick = roll(framesInSet(this.current.set ?? 'A'), this.deps.random());
+    const frame = pick.id as FrameId;
+    this.deps.log(`Gacha: ${pick.name} (${setById(pick.set).label}) · ${pkg === 'big' ? 'versi besar' : 'strip'}`, 'ok');
     this.set({
       phase: 'reveal',
       frame,
