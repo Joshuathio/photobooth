@@ -38,6 +38,27 @@ function useKioskMode(): void {
   }, []);
 }
 
+/**
+ * If the link stays down while the booth server is answering (e.g. the server
+ * was restarted with a new build and this tab still runs the old code), reload
+ * the page. Never reloads when the server is unreachable, so Chrome doesn't end
+ * up on its own error page.
+ */
+function useSelfHeal(linkUp: boolean): void {
+  useEffect(() => {
+    if (linkUp) return;
+    const id = setInterval(async () => {
+      try {
+        const res = await fetch(`${location.pathname}?alive=${Date.now()}`, { cache: 'no-store' });
+        if (res.ok) location.reload();
+      } catch {
+        // Server not reachable yet: keep waiting for the cable / server.
+      }
+    }, 15_000);
+    return () => clearInterval(id);
+  }, [linkUp]);
+}
+
 function GuestApp() {
   const [view, setView] = useState<GuestView>(IDLE_VIEW);
   const [frameUrl, setFrameUrl] = useState<string | null>(null);
@@ -70,6 +91,7 @@ function GuestApp() {
   }, []);
 
   useKioskMode();
+  useSelfHeal(linkUp);
 
   const online = linkUp && hosts > 0;
   const preview = frameUrl ? <img src={frameUrl} alt="" /> : null;
@@ -88,7 +110,7 @@ function GuestApp() {
             <p>
               {linkUp
                 ? 'Tablet sudah tersambung. Buka console booth di Mac (http://localhost:5173).'
-                : 'Menghubungkan ke booth. Cek kabel USB, lalu jalankan “npm run tablet” di Mac.'}
+                : 'Menghubungkan ke booth. Cek kabel USB, dan pastikan “npm run booth” dan “npm run tablet:watch” jalan di Mac.'}
             </p>
           </div>
         </div>

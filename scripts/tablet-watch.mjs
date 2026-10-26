@@ -6,6 +6,7 @@
  * restarted. Leave it running in its own Terminal tab: `npm run tablet:watch`.
  */
 import { execFile } from 'node:child_process';
+import { request } from 'node:http';
 
 const PORT = 5173;
 const EVERY_MS = 3000;
@@ -13,6 +14,18 @@ const EVERY_MS = 3000;
 const adb = (args) =>
   new Promise((resolve) => {
     execFile('adb', args, { timeout: 5000 }, (err, stdout) => resolve({ err, out: String(stdout ?? '') }));
+  });
+
+/** Is the booth server answering on this address? (adb may reach it over IPv4 or IPv6.) */
+const serverAt = (host) =>
+  new Promise((resolve) => {
+    const req = request({ host, port: PORT, path: '/guest.html', method: 'HEAD', timeout: 1500 }, (res) => {
+      res.resume();
+      resolve(res.statusCode !== undefined && res.statusCode < 500);
+    });
+    req.on('timeout', () => req.destroy());
+    req.on('error', () => resolve(false));
+    req.end();
   });
 
 let last = '';
@@ -23,6 +36,11 @@ const say = (state, text) => {
 };
 
 async function check() {
+  const [v4, v6] = await Promise.all([serverAt('127.0.0.1'), serverAt('::1')]);
+  if (!v4 && !v6) {
+    say('no-server', `Server booth tidak jalan di port ${PORT} — jalankan "npm run booth" (atau "npm run dev") di tab Terminal lain.`);
+    return;
+  }
   const devices = await adb(['devices']);
   if (devices.err) {
     say('no-adb', `adb tidak bisa dijalankan (${devices.err.code === 'ENOENT' ? 'belum terpasang?' : devices.err.message})`);
