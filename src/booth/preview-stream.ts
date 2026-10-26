@@ -1,12 +1,23 @@
 import { setTimer, type TimerHandle } from '../shared/timers';
 
+/** Frames sent but not yet shown on the tablet. More than this and we wait. */
+const MAX_IN_FLIGHT = 2;
+/** An ack that never comes (old tablet page, lost message) stops blocking after this. */
+const ACK_TIMEOUT_MS = 1_000;
+
 /**
- * Sends the live camera picture to the tablet as small JPEG frames. Simple
- * and good enough for posing; over the USB cable it runs at ~12 fps.
+ * Sends the live camera picture to the tablet as small JPEG frames, ~12 fps.
+ *
+ * Flow control: the tablet acknowledges every frame it has drawn, and at most
+ * MAX_IN_FLIGHT frames are on their way at once. When the tablet or the cable
+ * is slower, frames are skipped here instead of queueing up — so the preview
+ * stays live (a little choppier) rather than seconds behind.
  */
 export class PreviewStream {
   private timer: TimerHandle | null = null;
   private encoding = false;
+  private inFlight = 0;
+  private lastSentAt = 0;
   private readonly canvas = document.createElement('canvas');
   mirror = true;
 
@@ -29,6 +40,17 @@ export class PreviewStream {
   stop(): void {
     this.timer?.cancel();
     this.timer = null;
+    this.inFlight = 0;
+  }
+
+  /** The tablet drew a frame. */
+  acked(): void {
+    this.inFlight = Math.max(0, this.inFlight - 1);
+  }
+
+  /** The tablet (re)connected: nothing is in flight to it any more. */
+  reset(): void {
+    this.inFlight = 0;
   }
 
   private tick = (): void => {
@@ -36,6 +58,10 @@ export class PreviewStream {
     this.timer = setTimer(this.tick, 1000 / this.opts.fps);
     const { videoWidth: vw, videoHeight: vh } = this.video;
     if (this.encoding || vw === 0 || !this.canSend()) return;
+    if (this.inFlight >= MAX_IN_FLIGHT) {
+      if (Date.now() - this.lastSentAt < ACK_TIMEOUT_MS) return; // tablet still busy: skip this frame
+      this.inFlight = 0;
+    }
 
     const w = this.opts.width;
     const h = Math.round((w * vh) / vw);
@@ -51,7 +77,10 @@ export class PreviewStream {
     this.canvas.toBlob(
       (blob) => {
         this.encoding = false;
-        if (blob && this.timer) this.send(blob);
+        if (!blob || !this.timer) return;
+        this.inFlight++;
+        this.lastSentAt = Date.now();
+        this.send(blob);
       },
       'image/jpeg',
       this.opts.quality,

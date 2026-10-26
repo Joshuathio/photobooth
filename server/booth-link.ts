@@ -4,8 +4,11 @@ import type { Plugin } from 'vite';
 import { WebSocket, WebSocketServer, type RawData } from 'ws';
 import { HEARTBEAT_MS, LINK_PATH, type Role } from '../src/shared/link-protocol';
 
-/** Preview frames are dropped for a client that falls this far behind. */
-const MAX_BUFFERED_BYTES = 2_000_000;
+/**
+ * Preview frames are dropped for a client that falls this far behind (a few
+ * frames). A deep queue would show the tablet a picture seconds old.
+ */
+const MAX_BUFFERED_BYTES = 300_000;
 
 /**
  * Tiny relay between the Mac console ("host") and the tablet ("guest").

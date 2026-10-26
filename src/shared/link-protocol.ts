@@ -39,6 +39,8 @@ export type LinkMessage =
   | { type: 'intent'; intent: GuestIntent }
   /** Tablet → Mac, on every (re)connect: please send me the current screen. */
   | { type: 'hello' }
+  /** Tablet → Mac: a camera preview frame is on screen, send the next one. */
+  | { type: 'frameAck' }
   /**
    * Hub → everyone: who is connected. Also repeated every few seconds as a heartbeat.
    * `active` (consoles only): whether this console is the one the tablet follows —

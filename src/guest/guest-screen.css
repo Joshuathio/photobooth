@@ -241,7 +241,8 @@
   overflow: hidden;
 }
 .gs-attract__live > video,
-.gs-attract__live > img {
+.gs-attract__live > img,
+.gs-attract__live > canvas {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -658,7 +659,8 @@
 }
 .gs-capture__live,
 .gs-capture__live > video,
-.gs-capture__live > img {
+.gs-capture__live > img,
+.gs-capture__live > canvas {
   position: absolute;
   inset: 0;
   width: 100%;

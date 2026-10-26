@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useRef, useState } from 'react';
+import { StrictMode, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Link } from '../shared/link';
 import { IDLE_VIEW, type GuestView } from '../shared/view';
@@ -6,6 +6,7 @@ import { ScaledStage } from '../ui/ScaledStage';
 import '../ui/stage.css';
 import { GuestScreen, STAGE_H, STAGE_W } from './GuestScreen';
 import './guest.css';
+import { LivePreview, PreviewFrames } from './preview-frames';
 
 /** Keeps the tablet awake and fullscreen, and stops long-press menus. */
 function useKioskMode(): void {
@@ -61,13 +62,13 @@ function useSelfHeal(linkUp: boolean): void {
 
 function GuestApp() {
   const [view, setView] = useState<GuestView>(IDLE_VIEW);
-  const [frameUrl, setFrameUrl] = useState<string | null>(null);
   const [linkUp, setLinkUp] = useState(false);
   const [hosts, setHosts] = useState(0);
   const link = useRef<Link | null>(null);
+  // Camera frames bypass React state: drawing one must not re-render the whole screen.
+  const frames = useMemo(() => new PreviewFrames(() => link.current?.send({ type: 'frameAck' })), []);
 
   useEffect(() => {
-    let current: string | null = null;
     const l = new Link('guest', {
       onStatus: (up) => {
         setLinkUp(up);
@@ -78,23 +79,17 @@ function GuestApp() {
         if (msg.type === 'state') setView(msg.view);
         else if (msg.type === 'peers') setHosts(msg.hosts);
       },
-      onFrame: (blob) => {
-        const url = URL.createObjectURL(blob);
-        const prev = current;
-        current = url;
-        setFrameUrl(url);
-        if (prev) setTimeout(() => URL.revokeObjectURL(prev), 1000);
-      },
+      onFrame: (blob) => frames.push(blob),
     });
     link.current = l;
     return () => l.close();
-  }, []);
+  }, [frames]);
 
   useKioskMode();
   useSelfHeal(linkUp);
 
   const online = linkUp && hosts > 0;
-  const preview = frameUrl ? <img src={frameUrl} alt="" /> : null;
+  const preview = useMemo(() => <LivePreview frames={frames} />, [frames]);
 
   return (
     <ScaledStage width={STAGE_W} height={STAGE_H}>

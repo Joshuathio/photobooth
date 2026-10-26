@@ -161,7 +161,10 @@ export class BoothController {
           this.patch({ tablets: msg.guests, consoles: msg.hosts, activeConsole: active });
           if (joined || (active && !wasActive)) this.broadcast();
           this.updatePreview();
+        } else if (msg.type === 'frameAck') {
+          this.preview?.acked();
         } else if (msg.type === 'hello') {
+          this.preview?.reset();
           this.broadcast(); // tablet (re)connected: send it the current screen
         } else if (msg.type === 'intent') {
           this.intent(msg.intent);
@@ -183,6 +186,7 @@ export class BoothController {
     next.view = next.designPhase && next.live.phase === 'idle' ? sampleView(next.designPhase) : next.live;
     this.snapshot = next;
     this.listeners.forEach((fn) => fn());
+    this.updatePreview();
   }
 
   private broadcast(): void {
@@ -267,8 +271,10 @@ export class BoothController {
 
   private updatePreview(): void {
     if (!this.preview) return;
-    const want =
-      this.snapshot.linkUp && this.snapshot.tablets > 0 && this.snapshot.cameraReady && this.snapshot.activeConsole;
+    const s = this.snapshot;
+    // Only stream while the tablet shows the camera (start screen and shooting).
+    const shown = s.view.phase === 'idle' || s.view.phase === 'capturing';
+    const want = s.linkUp && s.tablets > 0 && s.cameraReady && s.activeConsole && shown;
     if (want && !this.preview.running) this.preview.start();
     if (!want && this.preview.running) this.preview.stop();
   }
