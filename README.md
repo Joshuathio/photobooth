@@ -29,7 +29,7 @@ file statis di mana saja.
 - **Upsell versi besar**: tombol "Suka semua?" mencetak semua 8 foto ukuran kecil landscape (3,5 × 2,55 cm), 2 set.
   Tablet menunggu sampai kasir menekan **Sudah bayar, cetak versi besar** di Mac (atau "Batal upgrade")
 - **Gacha frame** dengan animasi kapsul, diundi dari frame di set yang dipilih (peluang sama). Set A = 5 frame
-  "Minimal" dari desainer (frame 1–5); Set B (6–8) dan Set C (9–11) masih contoh warna
+  "Minimal" dari desainer (frame 1–5), Set B = 3 frame "Bifest" (BINUS Festival, frame 6–8); Set C (9–11) masih contoh warna
 - **Penawaran gantungan kunci buku (+15rb)** setelah gacha, sebelum QR: layar dengan buku mini berisi foto tamu dan
   timer 30 detik. "Mau" → file `buku-KODE.jpg` (16 foto landscape, 8 foto × 2, sama seperti versi besar) langsung
   di-download untuk dicetak, lalu layar QR (tamu diingatkan bayar 15rb ke kasir). Timer habis / "Nggak dulu" → hasil

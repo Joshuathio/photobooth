@@ -4,8 +4,8 @@
  * to rarity tiers later (e.g. 60/30/10), change the weights — roll() and odds()
  * already handle any weighting.
  *
- * Set A uses the designer's finished frames (PNG art in public/frames/). Sets B
- * and C are colour-and-pattern placeholders until their designs are in.
+ * Sets A ("Minimal") and B ("Bifest") use the designer's finished frames (PNG art
+ * in public/frames/). Set C is a colour-and-pattern placeholder until its design is in.
  */
 export type SetId = 'A' | 'B' | 'C';
 
@@ -40,10 +40,12 @@ export interface FrameStyle {
   outline?: string;
 }
 
-const minimal = (n: number) => ({
-  sheet: `/frames/minimal/minimal-${n}.png`,
-  thumb: `/frames/minimal/minimal-${n}-thumb.jpg`,
+const art = (set: string, n: number) => ({
+  sheet: `/frames/${set}/${set}-${n}.png`,
+  thumb: `/frames/${set}/${set}-${n}-thumb.jpg`,
 });
+const minimal = (n: number) => art('minimal', n);
+const bifest = (n: number) => art('bifest', n);
 
 export interface FrameSet {
   id: SetId;
@@ -66,10 +68,10 @@ export const FRAMES = [
   { id: 'a3', name: 'Frame 3', set: 'A', weight: 1, bg: '#FFFFFF', border: '#FFFFFF', ink: '#5E95D6', dim: '#79ACE4', accent: '#5E95D6', pattern: 'none', patternInk: 'transparent', art: minimal(3) },
   { id: 'a4', name: 'Frame 4', set: 'A', weight: 1, bg: '#DCE6F0', border: '#DCE6F0', ink: '#FFFFFF', dim: '#3F88D8', accent: '#3F88D8', pattern: 'check', patternInk: 'rgba(63, 136, 216, 0.42)', art: minimal(4), outline: '#3F88D8' },
   { id: 'a5', name: 'Frame 5', set: 'A', weight: 1, bg: '#B6282C', border: '#B6282C', ink: '#FFFFFF', dim: '#F0C9CA', accent: '#FFFFFF', pattern: 'none', patternInk: 'transparent', art: minimal(5) },
-  // Set B (placeholder): gingham blue, white stripes, navy
-  { id: 'b1', name: 'Frame 6', set: 'B', weight: 1, bg: '#DCE6F5', border: '#BFD0EA', ink: '#2F4A80', dim: '#506DA5', accent: '#2F4A80', pattern: 'check', patternInk: 'rgba(84, 127, 204, 0.24)' },
-  { id: 'b2', name: 'Frame 7', set: 'B', weight: 1, bg: '#F7F4EE', border: '#DCE3EE', ink: '#2F4A80', dim: '#5F78AA', accent: '#9E2A2B', pattern: 'stripes', patternInk: 'rgba(84, 127, 204, 0.15)' },
-  { id: 'b3', name: 'Frame 8', set: 'B', weight: 1, bg: '#2F4A80', border: '#22385F', ink: '#F7F1E8', dim: '#B5C6E6', accent: '#F4ECB1', pattern: 'sprinkle', patternInk: 'rgba(247, 241, 232, 0.24)' },
+  // Set B: "Bifest", the designer's BINUS Festival frames (cloud-shaped photo holes)
+  { id: 'b1', name: 'Frame 6', set: 'B', weight: 1, bg: '#FFFFFF', border: '#FFFFFF', ink: '#B6282C', dim: '#C2585C', accent: '#B6282C', pattern: 'none', patternInk: 'transparent', art: bifest(1) },
+  { id: 'b2', name: 'Frame 7', set: 'B', weight: 1, bg: '#FFFFFF', border: '#FFFFFF', ink: '#5E95D6', dim: '#92BCE9', accent: '#5E95D6', pattern: 'none', patternInk: 'transparent', art: bifest(2) },
+  { id: 'b3', name: 'Frame 8', set: 'B', weight: 1, bg: '#B6282C', border: '#B6282C', ink: '#FFFFFF', dim: '#F0C9CA', accent: '#FFFFFF', pattern: 'none', patternInk: 'transparent', art: bifest(3) },
   // Set C (placeholder): tan, mocha, sage
   { id: 'c1', name: 'Frame 9', set: 'C', weight: 1, bg: '#E4D3B5', border: '#CDB892', ink: '#6B4430', dim: '#83614A', accent: '#6B4430', pattern: 'dots', patternInk: 'rgba(107, 68, 48, 0.15)' },
   { id: 'c2', name: 'Frame 10', set: 'C', weight: 1, bg: '#6B4430', border: '#56351F', ink: '#F1E4CC', dim: '#D7B99A', accent: '#F1D98A', pattern: 'none', patternInk: 'transparent' },

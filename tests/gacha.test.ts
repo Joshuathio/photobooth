@@ -25,11 +25,16 @@ describe('gacha', () => {
     }
   });
 
-  it('uses the designer artwork for every Set A frame', () => {
+  it('uses the designer artwork for Set A (Minimal) and Set B (Bifest)', () => {
     framesInSet('A').forEach((f, i) => {
       expect(f.art?.sheet).toBe(`/frames/minimal/minimal-${i + 1}.png`);
       expect(f.art?.thumb).toBe(`/frames/minimal/minimal-${i + 1}-thumb.jpg`);
     });
+    framesInSet('B').forEach((f, i) => {
+      expect(f.art?.sheet).toBe(`/frames/bifest/bifest-${i + 1}.png`);
+      expect(f.art?.thumb).toBe(`/frames/bifest/bifest-${i + 1}-thumb.jpg`);
+    });
+    expect(framesInSet('C').every((f) => !f.art)).toBe(true);
   });
 
   it('maps the random number onto the weights', () => {
