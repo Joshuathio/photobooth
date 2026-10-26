@@ -207,7 +207,7 @@ describe('BoothSession', () => {
     expect(session.view).toMatchObject({ phase: 'set', set: null });
     session.handleIntent({ type: 'confirmSet' }, 'BESTIE');
     expect(session.view.phase).toBe('set');
-    session.handleIntent({ type: 'set', set: 'C' }, 'BESTIE');
+    session.handleIntent({ type: 'set', set: 'B' }, 'BESTIE');
     session.handleIntent({ type: 'set', set: 'A' }, 'BESTIE'); // changed their mind
     expect(session.view.set).toBe('A');
     session.handleIntent({ type: 'confirmSet' }, 'BESTIE');
@@ -218,10 +218,11 @@ describe('BoothSession', () => {
     const { session } = setup();
     session.begin();
     session.handleIntent({ type: 'set', set: 'Z' as never }, 'BESTIE');
+    session.handleIntent({ type: 'set', set: 'C' as never }, 'BESTIE'); // Set C was removed
     expect(session.view.set).toBeNull();
     session.pickSet('B');
     session.confirmSet();
-    session.pickSet('C');
+    session.pickSet('A');
     expect(session.view).toMatchObject({ phase: 'deck', set: 'B' });
   });
 
@@ -235,19 +236,19 @@ describe('BoothSession', () => {
   });
 
   it.each([
-    [0, 'c1'],
-    [0.5, 'c2'],
-    [0.999, 'c3'],
+    [0, 'a1'],
+    [0.5, 'a3'],
+    [0.999, 'a5'],
   ])('only rolls frames from the chosen set (random %s → %s)', async (r, frame) => {
     const { deps, session } = setup({ random: () => r });
     session.begin();
-    session.pickSet('C');
+    session.pickSet('A');
     session.confirmSet();
     await session.chooseDeck('BESTIE');
     for (const i of [0, 1, 2, 3]) session.toggle(i);
     await session.confirm();
     expect(deps.deliver).toHaveBeenCalledWith(expect.objectContaining({ frame }));
-    expect(session.view).toMatchObject({ phase: 'offer', set: 'C', frame });
+    expect(session.view).toMatchObject({ phase: 'offer', set: 'A', frame });
   });
 
   /* ---------- Book keychain offer ---------- */

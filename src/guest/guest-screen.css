@@ -340,9 +340,10 @@
 .gs-sets__cards {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 30px;
-  padding: 0 6px;
+  grid-auto-flow: column; /* one column per set, however many there are */
+  grid-auto-columns: 1fr;
+  gap: 44px;
+  padding: 0 40px;
 }
 .gs-setcard {
   position: relative;
@@ -429,9 +430,9 @@
   position: absolute;
   left: 50%;
   top: 18px;
-  width: 82px;
-  height: 228px;
-  margin-left: -41px;
+  width: 92px;
+  height: 256px;
+  margin-left: -46px;
   padding: 8px 8px 0;
   border-radius: 3px;
   display: flex;
@@ -460,7 +461,7 @@
   border-radius: 3px;
 }
 .gs-setstrip i {
-  height: 36px;
+  height: 40px;
   flex: none;
   border-radius: 1px;
   background: color-mix(in srgb, var(--f-ink) 26%, #fff 30%);

@@ -22,14 +22,14 @@ file statis di mana saja.
 
 **Layar tamu (tablet, landscape)** — `guest.html`
 - Layar awal dengan preview kamera live dan isi tiap set frame
-- **Pilih set frame**: Set A (frame 1–3), Set B (frame 4–6), Set C (frame 7–9). Tamu tap satu set lalu "Pakai Set …"
+- **Pilih set frame**: Set A (frame 1–5) dan Set B (frame 6–8). Tamu tap satu set lalu "Pakai Set …"
 - Pilih gaya: Bestie, Couple, Chaos, Corporate, Anak Kuliahan (tombol "Kembali" balik ke pilih set)
 - **8 foto** dengan arahan pose, countdown, dan flash (8 arahan berbeda per gaya)
 - **Pilih 4 foto** favorit untuk strip (tap di tablet). Kalau 45 detik tidak selesai, otomatis dipakai foto paling awal
 - **Upsell versi besar**: tombol "Suka semua?" mencetak semua 8 foto ukuran kecil landscape (3,5 × 2,55 cm), 2 set.
   Tablet menunggu sampai kasir menekan **Sudah bayar, cetak versi besar** di Mac (atau "Batal upgrade")
 - **Gacha frame** dengan animasi kapsul, diundi dari frame di set yang dipilih (peluang sama). Set A = 5 frame
-  "Minimal" dari desainer (frame 1–5), Set B = 3 frame "Bifest" (BINUS Festival, frame 6–8); Set C (9–11) masih contoh warna
+  "Minimal" dari desainer (frame 1–5), Set B = 3 frame "Bifest" (BINUS Festival, frame 6–8)
 - **Penawaran gantungan kunci buku (+15rb)** setelah gacha, sebelum QR: layar dengan buku mini berisi foto tamu dan
   timer 30 detik. "Mau" → file `buku-KODE.jpg` (16 foto landscape, 8 foto × 2, sama seperti versi besar) langsung
   di-download untuk dicetak, lalu layar QR (tamu diingatkan bayar 15rb ke kasir). Timer habis / "Nggak dulu" → hasil
@@ -149,7 +149,7 @@ Teks panjang baru tinggal diberi class `long-text`. Untuk ganti font, ubah bagia
 
 ## Mengubah gacha
 
-Set ada di `FRAME_SETS` dan frame di `FRAMES` (`src/booth/gacha.ts`). Tiap frame punya `set: 'A' | 'B' | 'C'`;
+Set ada di `FRAME_SETS` dan frame di `FRAMES` (`src/booth/gacha.ts`). Tiap frame punya `set: 'A' | 'B'`;
 gacha hanya mengundi frame dari set yang dipilih tamu. Nama set ("Set A" dst.) cukup diganti di `label`.
 Sekarang semua `weight: 1` (peluang sama). Untuk tier rarity, ubah bobotnya, misalnya 60/30/10; pengaturan di Mac
 otomatis menampilkan persentase yang baru.

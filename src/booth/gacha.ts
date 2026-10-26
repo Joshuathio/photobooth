@@ -4,10 +4,11 @@
  * to rarity tiers later (e.g. 60/30/10), change the weights — roll() and odds()
  * already handle any weighting.
  *
- * Sets A ("Minimal") and B ("Bifest") use the designer's finished frames (PNG art
- * in public/frames/). Set C is a colour-and-pattern placeholder until its design is in.
+ * Both sets use the designer's finished frames (PNG art in public/frames/):
+ * Set A "Minimal" and Set B "Bifest". To add a set, add its id to SetId, an entry
+ * to FRAME_SETS and its frames below.
  */
-export type SetId = 'A' | 'B' | 'C';
+export type SetId = 'A' | 'B';
 
 /** Background pattern painted over the frame colour (on screen and on the print). */
 export type FramePattern = 'none' | 'dots' | 'stripes' | 'check' | 'sprinkle';
@@ -58,7 +59,6 @@ export interface FrameSet {
 export const FRAME_SETS = [
   { id: 'A', label: 'Set A', tint: '#F6D9D6' },
   { id: 'B', label: 'Set B', tint: '#D6E2F3' },
-  { id: 'C', label: 'Set C', tint: '#E9DCC4' },
 ] as const satisfies readonly FrameSet[];
 
 export const FRAMES = [
@@ -72,10 +72,6 @@ export const FRAMES = [
   { id: 'b1', name: 'Frame 6', set: 'B', weight: 1, bg: '#FFFFFF', border: '#FFFFFF', ink: '#B6282C', dim: '#C2585C', accent: '#B6282C', pattern: 'none', patternInk: 'transparent', art: bifest(1) },
   { id: 'b2', name: 'Frame 7', set: 'B', weight: 1, bg: '#FFFFFF', border: '#FFFFFF', ink: '#5E95D6', dim: '#92BCE9', accent: '#5E95D6', pattern: 'none', patternInk: 'transparent', art: bifest(2) },
   { id: 'b3', name: 'Frame 8', set: 'B', weight: 1, bg: '#B6282C', border: '#B6282C', ink: '#FFFFFF', dim: '#F0C9CA', accent: '#FFFFFF', pattern: 'none', patternInk: 'transparent', art: bifest(3) },
-  // Set C (placeholder): tan, mocha, sage
-  { id: 'c1', name: 'Frame 9', set: 'C', weight: 1, bg: '#E4D3B5', border: '#CDB892', ink: '#6B4430', dim: '#83614A', accent: '#6B4430', pattern: 'dots', patternInk: 'rgba(107, 68, 48, 0.15)' },
-  { id: 'c2', name: 'Frame 10', set: 'C', weight: 1, bg: '#6B4430', border: '#56351F', ink: '#F1E4CC', dim: '#D7B99A', accent: '#F1D98A', pattern: 'none', patternInk: 'transparent' },
-  { id: 'c3', name: 'Frame 11', set: 'C', weight: 1, bg: '#AFBF95', border: '#95A77A', ink: '#3F4B2B', dim: '#55623F', accent: '#3F4B2B', pattern: 'stripes', patternInk: 'rgba(63, 75, 43, 0.14)' },
 ] as const satisfies readonly FrameStyle[];
 
 export type FrameId = (typeof FRAMES)[number]['id'];

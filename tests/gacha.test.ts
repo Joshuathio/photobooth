@@ -14,11 +14,10 @@ function mulberry32(seed: number): () => number {
 
 describe('gacha', () => {
   it('has three sets with equal odds inside each set', () => {
-    expect(FRAME_SETS.map((s) => s.label)).toEqual(['Set A', 'Set B', 'Set C']);
+    expect(FRAME_SETS.map((s) => s.label)).toEqual(['Set A', 'Set B']);
     expect(framesInSet('A').map((f) => f.id)).toEqual(['a1', 'a2', 'a3', 'a4', 'a5']);
     expect(framesInSet('B').map((f) => f.id)).toEqual(['b1', 'b2', 'b3']);
-    expect(framesInSet('C').map((f) => f.id)).toEqual(['c1', 'c2', 'c3']);
-    expect(FRAMES.map((f) => f.name)).toEqual(Array.from({ length: 11 }, (_, i) => `Frame ${i + 1}`));
+    expect(FRAMES.map((f) => f.name)).toEqual(Array.from({ length: 8 }, (_, i) => `Frame ${i + 1}`));
     for (const set of FRAME_SETS) {
       const pool = framesInSet(set.id);
       for (const p of odds(pool)) expect(p).toBeCloseTo(100 / pool.length);
@@ -34,7 +33,7 @@ describe('gacha', () => {
       expect(f.art?.sheet).toBe(`/frames/bifest/bifest-${i + 1}.png`);
       expect(f.art?.thumb).toBe(`/frames/bifest/bifest-${i + 1}-thumb.jpg`);
     });
-    expect(framesInSet('C').every((f) => !f.art)).toBe(true);
+    expect(FRAMES.every((f) => f.art)).toBe(true);
   });
 
   it('maps the random number onto the weights', () => {

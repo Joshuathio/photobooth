@@ -136,8 +136,8 @@ const frameNo = (frame: FrameStyle) => frame.name.replace(/\D+/g, '');
 function SetStrip({ frame, slot, count }: { frame: FrameStyle; slot: number; count: number }) {
   // Fan the strips out like a hand of cards; wider sets fan tighter.
   const off = slot - (count - 1) / 2;
-  const step = count > 3 ? 48 : 74;
-  const tilt = count > 3 ? 8 : 11;
+  const step = count > 3 ? 70 : 96;
+  const tilt = count > 3 ? 7 : 10;
   const style = {
     ...frameVars(frame),
     transform: `translateX(${off * step}px) translateY(${Math.abs(off) * 8 - 10}px) rotate(${off * tilt}deg)`,
