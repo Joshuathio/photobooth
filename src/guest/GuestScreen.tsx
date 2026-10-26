@@ -481,9 +481,10 @@ function BookKeychain({ view }: { view: GuestView }) {
             <span className="gs-kc__photo">
               <Thumb src={view.thumbs[cover]} i={0} />
             </span>
-            <span className="gs-kc__title">Dearly</span>
-            <span className="gs-kc__sub">
-              {view.totalShots} foto · {view.code}
+            {/* Same hand lettering as the frame footers: small "with love," over a big "Dearly". */}
+            <span className="gs-kc__sign">
+              <span className="gs-kc__with">with love,</span>
+              <span className="gs-kc__title">Dearly</span>
             </span>
           </div>
         </div>

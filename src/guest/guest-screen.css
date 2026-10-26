@@ -1270,18 +1270,21 @@
   height: 170px;
   object-fit: cover;
 }
-.gs-kc__title {
-  margin-top: 26px;
+.gs-kc__sign {
+  margin-top: 22px;
+  display: flex;
+  flex-direction: column;
   font-family: var(--font-script);
-  font-size: 62px;
   line-height: 1;
   color: var(--red);
+  transform: rotate(-4deg);
 }
-.gs-kc__sub {
-  margin-top: 14px;
-  font-size: 18px;
-  letter-spacing: 0.04em;
-  opacity: 0.75;
+.gs-kc__with {
+  font-size: 28px;
+}
+.gs-kc__title {
+  margin: 0 0 0 34px; /* stepped right, like "with love, / Dearly" on the frames */
+  font-size: 62px;
 }
 .gs-kc__loose {
   position: absolute;
@@ -1550,21 +1553,23 @@
   left: 520px;
 }
 
-/* Tape on the two top corners, so nothing covers the code printed at the bottom. */
+/* Tape on opposite corners: top left and bottom right. The session code sits in the
+   left margin, clear of both. */
 .gs-result__tape1,
 .gs-result__tape2 {
   width: 118px;
   height: 34px;
-  top: 4px;
   z-index: 1;
 }
 .gs-result__tape1 {
+  top: 4px;
   left: -42px;
   transform: rotate(-38deg);
 }
 .gs-result__tape2 {
+  bottom: 4px;
   right: -42px;
-  transform: rotate(38deg);
+  transform: rotate(-38deg);
 }
 .gs-result__star {
   right: -36px;
