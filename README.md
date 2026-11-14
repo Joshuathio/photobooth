@@ -23,7 +23,7 @@ file statis di mana saja.
 **Layar tamu (tablet, landscape)** — `guest.html`
 - Layar awal dengan preview kamera live dan isi tiap set frame
 - **Pilih set frame**: Set A (frame 1–5) dan Set B (frame 6–8). Tamu tap satu set lalu "Pakai Set …"
-- Pilih gaya: Bestie, Couple, Chaos, Corporate, Anak Kuliahan, atau **Bebas** (tanpa arahan pose). Tiap gaya punya 24
+- Pilih gaya: Bestie, Couple, Chaos, Corporate, Anak Kuliahan, atau **Bebas** (tanpa arahan pose). Tiap gaya punya 21–24
   arahan pose; tiap sesi dapat 7 acak + foto terakhir bebas. Pose diambil seperti kartu yang dikocok
   (`src/booth/prompts.ts`), jadi pose yang sama baru muncul lagi setelah semua pose gaya itu terpakai. Daftar pose ada
   di `DECKS` (`src/booth/config.ts`). Tombol "Kembali" balik ke pilih set

@@ -15,14 +15,18 @@ function mulberry32(seed: number) {
 const POOLED = (Object.keys(DECKS) as DeckId[]).filter((id) => !(DECKS[id] as Deck).free);
 
 describe('prompt pools', () => {
-  it('has 24 different prompts in every gaya, without "Bebas" in the pool', () => {
+  it('has 21–24 different prompts in every gaya, without "Bebas" in the pool', () => {
     expect(POOLED).toEqual(['BESTIE', 'COUPLE', 'CHAOS', 'CORPORATE', 'KULIAH']);
+    expect(POOLED.map((id) => DECKS[id].prompts.length)).toEqual([21, 24, 24, 24, 24]);
     for (const id of POOLED) {
       const pool = DECKS[id].prompts;
-      expect(pool).toHaveLength(24);
-      expect(new Set(pool).size).toBe(24);
+      expect(new Set(pool).size).toBe(pool.length);
       expect(pool.some((p) => p.startsWith('Bebas'))).toBe(false);
     }
+  });
+
+  it('has no pointing prompts (they make no sense on the print)', () => {
+    for (const id of POOLED) for (const p of DECKS[id].prompts) expect(p.toLowerCase()).not.toMatch(/tunjuk/);
   });
 
   it('has a free "Bebas" gaya with one cue per shot', () => {
