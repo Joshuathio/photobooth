@@ -32,6 +32,11 @@ jobs:
       - run: npm run build
         env:
           VITE_CLOUDINARY_CLOUD_NAME: ${{ vars.VITE_CLOUDINARY_CLOUD_NAME || 'fbhrxtkn' }}
+      - name: Keep only the gallery
+        run: |
+          rm dist/guest.html
+          cp dist/gallery.html dist/index.html
+   
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
