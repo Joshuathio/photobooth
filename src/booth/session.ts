@@ -13,6 +13,7 @@ import {
   type DeckId,
 } from './config';
 import { framesInSet, isSetId, roll, setById, type FrameId, type SetId } from './gacha';
+import { PromptBag } from './prompts';
 import { Cancelled, sleep as realSleep } from './timing';
 import type { GuestIntent } from '../shared/link-protocol';
 import { IDLE_VIEW, type GuestView, type PrintPackage } from '../shared/view';
@@ -66,6 +67,8 @@ export class BoothSession<Shot = unknown> {
   private run = 0;
   /** The session waiting on the selection screen. */
   private taken: { code: string; shots: Shot[]; run: number } | null = null;
+  /** Deals each session's poses so back-to-back groups get different ones. */
+  private readonly promptBag: PromptBag;
   /** The finished session on the book offer screen, until the result screen opens. */
   private offering: { code: string; shots: Shot[]; frame: FrameId; run: number; result: DeliverResult } | null =
     null;
@@ -76,6 +79,7 @@ export class BoothSession<Shot = unknown> {
     private readonly onChange: (view: GuestView) => void,
   ) {
     this.sleep = deps.sleep ?? realSleep;
+    this.promptBag = new PromptBag(() => deps.random());
   }
 
   get view(): GuestView {
@@ -328,10 +332,11 @@ export class BoothSession<Shot = unknown> {
     const set = this.current.set ?? 'A';
     this.deps.log(`Sesi ${code} · ${setById(set).label} · gaya ${DECKS[deck].label}`);
     this.set({ phase: 'capturing', set, deck, code, shot: 0, prompt: null, count: null });
+    const plan = this.promptBag.draw(deck);
 
     try {
       for (let i = 0; i < SHOTS; i++) {
-        this.set({ shot: i, prompt: DECKS[deck].prompts[i] ?? 'Bebas', count: null });
+        this.set({ shot: i, prompt: plan[i], count: null });
         await this.sleep(PROMPT_MS, signal);
         for (let n = COUNTDOWN_FROM; n > 0; n--) {
           this.set({ count: n });

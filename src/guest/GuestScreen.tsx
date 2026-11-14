@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { BOOK_PRICE, BOOK_PRICE_TAG, DECKS, OFFER_MS, type DeckId } from '../booth/config';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { BOOK_PRICE, BOOK_PRICE_TAG, DECKS, OFFER_MS, SHOTS, type Deck, type DeckId } from '../booth/config';
 import { FRAME_SETS, frameById, framesInSet, setById, type FrameStyle, type SetId } from '../booth/gacha';
 import type { GuestIntent } from '../shared/link-protocol';
 import type { GuestView } from '../shared/view';
@@ -236,8 +236,27 @@ function SetPicker({ chosen, onIntent }: { chosen: SetId | null; onIntent(intent
 /* ---------- Deck picker ---------- */
 /** Poses previewed on each card; the rest are a surprise. */
 const CARD_POSES = 3;
+/** Poses per session that come from the pool (the last shot is always "Bebas"). */
+const DRAWN = SHOTS - 1;
+
+/** A few sample prompts per gaya, picked fresh each time the screen opens. */
+function useSamples(): Record<DeckId, string[]> {
+  return useMemo(() => {
+    const out = {} as Record<DeckId, string[]>;
+    for (const id of Object.keys(DECKS) as DeckId[]) {
+      const pool = [...DECKS[id].prompts];
+      for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+      }
+      out[id] = pool.slice(0, CARD_POSES);
+    }
+    return out;
+  }, []);
+}
 
 function DeckPicker({ set, onPick, onBack }: { set: SetId | null; onPick(deck: DeckId): void; onBack(): void }) {
+  const samples = useSamples();
   return (
     <div className="gs-sheet paper gs-deck">
       <Star size={46} className="gs-deck__star1" />
@@ -249,20 +268,33 @@ function DeckPicker({ set, onPick, onBack }: { set: SetId | null; onPick(deck: D
       <h1 className="gs-title sticker">Mau gaya apa?</h1>
       <p className="gs-deck__sub">Pilih satu, nanti tiap foto ada arahan pose-nya.</p>
       <ul className="gs-deck__cards">
-        {(Object.keys(DECKS) as DeckId[]).map((id) => (
-          <li key={id}>
-            <button type="button" className="gs-card" onClick={() => onPick(id)}>
-              <span className="gs-card__label">{DECKS[id].label}</span>
-              {/* Spans, not a list: buttons may only contain inline content. */}
-              <span className="gs-card__poses">
-                {DECKS[id].prompts.slice(0, CARD_POSES).map((p) => (
-                  <span key={p}>{p}</span>
-                ))}
-              </span>
-              <span className="gs-card__more">+{DECKS[id].prompts.length - CARD_POSES} pose lagi</span>
-            </button>
-          </li>
-        ))}
+        {(Object.keys(DECKS) as DeckId[]).map((id) => {
+          const deck: Deck = DECKS[id];
+          return (
+            <li key={id}>
+              <button type="button" className={`gs-card ${deck.free ? 'gs-card--free' : ''}`} onClick={() => onPick(id)}>
+                <span className="gs-card__label">{deck.label}</span>
+                {/* Spans, not a list: buttons may only contain inline content. */}
+                {deck.free ? (
+                  <span className="gs-card__poses gs-card__poses--free">
+                    {(deck.blurb ?? []).map((line) => (
+                      <span key={line}>{line}</span>
+                    ))}
+                  </span>
+                ) : (
+                  <span className="gs-card__poses">
+                    {samples[id].map((p) => (
+                      <span key={p}>{p}</span>
+                    ))}
+                  </span>
+                )}
+                <span className="gs-card__more">
+                  {deck.free ? 'Kalian yang atur' : `${DRAWN} pose acak dari ${deck.prompts.length}`}
+                </span>
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

@@ -81,8 +81,19 @@ export const MARGIN_CODE_Y = 1340;
 
 export interface Deck {
   label: string;
+  /**
+   * The prompt pool. Each session draws SHOTS - 1 of them at random (see
+   * PromptBag) and ends on LAST_PROMPT. A `free` deck has no pool: its
+   * prompts are light cues shown in order, one per shot.
+   */
   prompts: readonly string[];
+  free?: boolean;
+  /** Card text instead of sample prompts (free decks). */
+  blurb?: readonly string[];
 }
+
+/** The last shot of every session: their own pose. */
+export const LAST_PROMPT = 'Bebas — pose andalan kalian';
 
 export const DECKS = {
   BESTIE: {
@@ -95,7 +106,23 @@ export const DECKS = {
       'Pura-pura nggak kenal satu sama lain',
       'Tos paling heboh',
       'Foto ala album keluarga zaman dulu',
-      'Bebas — pose andalan kalian',
+      'Tunjuk siapa yang paling sering telat',
+      'Pose cover album K-pop, semua serius',
+      'Satu orang jadi fotografer, sisanya model',
+      'Semua sibuk main HP, cuek sama kamera',
+      'Pose foto keluarga pas lebaran',
+      'Reaksi pas tau grup chat lagi ngomongin kamu',
+      'Pose "habis berantem tapi udah baikan"',
+      'Formasi boyband / girlband',
+      'Muka pas temen bilang "otw" padahal baru bangun',
+      'Rangkulan kayak tim juara',
+      'Pose foto wisuda TK',
+      'Satu orang curhat, sisanya pura-pura dengerin',
+      'Muka pas bill makan datang',
+      'Saling sandaran, capek abis jalan seharian',
+      'Pose iklan sampo, kibas rambut',
+      'Tunjuk siapa yang paling boros',
+      'Senyum paling palsu kalian',
     ],
   },
   COUPLE: {
@@ -108,7 +135,23 @@ export const DECKS = {
       'Pose prewedding paling dramatis',
       'Bisikin sesuatu ke telinga pasangan',
       'Bikin bentuk hati pakai tangan berdua',
-      'Bebas',
+      'Pose foto KTP berdua',
+      'Satu marah, satu minta maaf',
+      'Tatap-tatapan, yang ketawa duluan kalah',
+      'Adegan drakor di halte bus',
+      'Foto anniversary ke-50',
+      'Saling tunjuk: "dia yang naksir duluan"',
+      'Satu bawain tas pasangan, muka pasrah',
+      'Pose sampul novel romantis',
+      'Rebutan makanan terakhir',
+      'Muka pas pasangan bilang "terserah"',
+      'Saling benerin rambut',
+      'Pose dansa',
+      'Back to back kayak poster film action',
+      'Satu ngambek, satu bujukin',
+      'Foto pacaran pertama yang canggung',
+      'Nunggu ojol bareng, dua-duanya bete',
+      'Pose "kita lawan dunia"',
     ],
   },
   CHAOS: {
@@ -121,7 +164,23 @@ export const DECKS = {
       'Teriak sekencang-kencangnya, tapi tanpa suara',
       'Jadi patung paling aneh',
       'Satu orang pingsan, sisanya panik',
-      'Bebas',
+      'Semua jadi zombie',
+      'Kena angin topan',
+      'Muka pas WiFi tiba-tiba mati',
+      'Dikejar anjing',
+      'Jadi hewan pilihan masing-masing',
+      'Konser rock, semua headbang',
+      'Freeze kayak video nge-lag',
+      'Muka paling kaget sedunia',
+      'Lagi naik roller coaster',
+      'Rebutan jadi paling depan',
+      'Kepedesan level 10',
+      'Satu orang jadi bos, sisanya kabur',
+      'Muka pas ketahuan nyontek',
+      'Pose superhero, tapi gagal',
+      'Tarik tambang tanpa tali',
+      'Kepanasan banget',
+      'Barisan paling depan di konser',
     ],
   },
   CORPORATE: {
@@ -134,7 +193,23 @@ export const DECKS = {
       'Muka "meeting ini harusnya cukup lewat email"',
       'Foto tim buat website kantor',
       'Rayain closing deal',
-      'Bebas',
+      'Muka pas bos bilang "ada waktu sebentar?"',
+      'Pose Employee of the Month',
+      'Lagi Zoom, kamera mati, rebahan',
+      'Brainstorming serius soal hal sepele',
+      'Muka Senin jam 8 pagi',
+      'Muka Jumat jam 5 sore',
+      'Pose CEO startup di majalah',
+      'Pura-pura dengerin padahal nggak',
+      'Reaksi pas dapet bonus',
+      'Rapat mendadak, semua panik',
+      'Pose "kita satu keluarga besar"',
+      'Pura-pura sibuk pas bos lewat',
+      'Tos "teamwork makes the dream work"',
+      'Muka pas disuruh lembur',
+      'Resign dengan elegan',
+      'Networking paling canggung',
+      'Foto stok "orang kantor ketawa"',
     ],
   },
   KULIAH: {
@@ -147,7 +222,39 @@ export const DECKS = {
       'Nunggu dosen yang nggak dateng-dateng',
       'Panik, deadline jam 23.59',
       'Lempar toga khayalan',
-      'Bebas',
+      'Muka pas dosen bilang "kelompoknya saya yang tentuin"',
+      'Satu kerja, sisanya numpang nama',
+      'Pose foto KTM',
+      'Muka pas sidang skripsi',
+      'Rebutan colokan di perpus',
+      'Pura-pura nyatet padahal ngelamun',
+      'Lari ngejar kelas yang udah mulai',
+      'Muka pas tanggal tua',
+      'Sok rajin di perpustakaan',
+      'Pose "IPK aman"',
+      'Reaksi pas kelas dibatalin',
+      'Presentasi tapi lupa materi',
+      'Semua angkat tangan mau jawab',
+      'Begadang ngerjain tugas, mata panda',
+      'Maba hari pertama ospek',
+      'Nunggu revisi dosen pembimbing',
+      'Pose wisuda beneran',
+    ],
+  },
+  BEBAS: {
+    label: 'Bebas',
+    free: true,
+    blurb: ['Tanpa arahan pose', 'Gaya kalian sendiri, 8 kali', 'Cocok buat yang udah punya ide'],
+    // Light cues only, no instructions: one per shot, in order.
+    prompts: [
+      'Bebas! Gaya andalan kalian',
+      'Ganti pose!',
+      'Satu lagi, beda gaya',
+      'Yang lebih heboh',
+      'Sekarang yang kalem',
+      'Pose favorit kalian',
+      'Yang paling "kalian banget"',
+      'Terakhir, bebas sebebas-bebasnya!',
     ],
   },
 } as const satisfies Record<string, Deck>;
