@@ -129,6 +129,90 @@ body.gallery {
   font-size: 14px;
   font-weight: 800;
 }
+.picks {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.picks__title {
+  margin: 0;
+  font-family: var(--font-chunky);
+  font-weight: 400;
+  font-size: 22px;
+  text-align: center;
+}
+.picks__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.pick {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 3px solid transparent;
+  border-radius: 6px;
+  background: var(--field);
+  cursor: pointer;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(34, 52, 92, 0.2);
+}
+.pick img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pick__num,
+.pick__check {
+  position: absolute;
+  top: 6px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-family: var(--font-chunky);
+  font-size: 14px;
+}
+.pick__num {
+  left: 6px;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--red);
+}
+.pick__check {
+  right: 6px;
+  border: 2px solid #fff;
+  background: rgba(0, 0, 0, 0.25);
+  color: transparent;
+}
+.pick[aria-pressed='true'] {
+  border-color: var(--red);
+}
+.pick[aria-pressed='true'] .pick__check {
+  background: var(--red);
+  color: #fff;
+}
+.pick:focus-visible {
+  outline: 3px solid var(--red);
+  outline-offset: 2px;
+}
+.picks__actions {
+  display: flex;
+  gap: 10px;
+}
+.picks__actions .btn {
+  flex: 1;
+  padding: 13px 10px;
+  font-size: 15px;
+}
+
 .gif-wrap {
   width: 100%;
   filter: drop-shadow(0 8px 16px rgba(58, 42, 38, 0.22));

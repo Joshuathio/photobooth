@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { attachmentUrl, deliveryUrl, galleryLink, publicId } from '../src/shared/cloudinary';
+import {
+  allSheetCell,
+  attachmentUrl,
+  croppedPhotoUrl,
+  deliveryUrl,
+  galleryLink,
+  photoPublicId,
+  photoUrl,
+  publicId,
+} from '../src/shared/cloudinary';
 
 describe('cloudinary urls', () => {
   it('namespaces assets by session code', () => {
@@ -23,5 +32,21 @@ describe('cloudinary urls', () => {
 
   it('rejects a gallery url that is not a url', () => {
     expect(() => galleryLink('gallery.html', 'ABCDEF')).toThrow();
+  });
+
+  it('builds urls for the single photos', () => {
+    expect(photoPublicId('7K9XPQ', 3)).toBe('booth/7K9XPQ/photo-3');
+    expect(photoUrl('demo', '7K9XPQ', 3)).toBe('https://res.cloudinary.com/demo/image/upload/booth/7K9XPQ/photo-3.jpg');
+    expect(photoUrl('demo', '7K9XPQ', 3, { width: 480, download: true })).toBe(
+      'https://res.cloudinary.com/demo/image/upload/c_scale,w_480/fl_attachment:dearly-7K9XPQ-3/booth/7K9XPQ/photo-3.jpg',
+    );
+  });
+
+  it('cuts old sessions\' photos out of the 8-photo sheet', () => {
+    expect(allSheetCell(1)).toEqual({ x: 36, y: 36, w: 555, h: 370 });
+    expect(allSheetCell(8)).toEqual({ x: 609, y: 1200, w: 555, h: 370 });
+    expect(croppedPhotoUrl('demo', '7K9XPQ', 2, { download: true })).toBe(
+      'https://res.cloudinary.com/demo/image/upload/c_crop,x_609,y_36,w_555,h_370/fl_attachment:dearly-7K9XPQ-2/booth/7K9XPQ/all.jpg',
+    );
   });
 });

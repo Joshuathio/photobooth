@@ -18,7 +18,7 @@ import { frameById, secureRandom, type FrameId } from '../booth/gacha';
 import { PreviewStream } from '../booth/preview-stream';
 import { BoothSession, type DeliverInput, type DeliverResult } from '../booth/session';
 import { hasCloud, loadSettings, saveSettings, type Settings } from '../booth/settings';
-import { galleryLink, publicId, uploadUnsigned, type AssetKey } from '../shared/cloudinary';
+import { galleryLink, photoPublicId, publicId, uploadUnsigned, type AssetKey } from '../shared/cloudinary';
 import { Link } from '../shared/link';
 import type { GuestIntent } from '../shared/link-protocol';
 import { generateSessionCode } from '../shared/session-code';
@@ -368,11 +368,24 @@ export class BoothController {
       return { link: null, stripThumb };
     }
 
+    // The 8 single photos, so guests can pick which ones to save. They're extras:
+    // a failed one is logged but doesn't hold back the QR code.
+    const photos = Promise.allSettled(
+      shots.map(async (shot, i) =>
+        uploadUnsigned(settings.cloudName, settings.uploadPreset, await toJpeg(shot), photoPublicId(code, i + 1)),
+      ),
+    ).then((results) => {
+      const failed = results.filter((r) => r.status === 'rejected').length;
+      if (failed) this.log(`Upload foto satuan: ${failed} dari ${results.length} gagal`, 'err');
+      else this.log(`Upload ${results.length} foto satuan berhasil`, 'ok');
+    });
+
     const outcomes = await Promise.allSettled(
       jobs.map(([key, , blob]) =>
         uploadUnsigned(settings.cloudName, settings.uploadPreset, blob, publicId(code, key)),
       ),
     );
+    await photos;
     let allUploaded = true;
     outcomes.forEach((o, i) => {
       const [key, label, blob, filename] = jobs[i];
