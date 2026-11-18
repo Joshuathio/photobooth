@@ -50,6 +50,7 @@ export class Camera {
 
   /** Grabs a frame at the camera's native resolution. */
   grab(mirror: boolean): HTMLCanvasElement {
+    if (!this.ready) throw new Error('Kamera belum siap');
     const c = document.createElement('canvas');
     c.width = this.video.videoWidth;
     c.height = this.video.videoHeight;

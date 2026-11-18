@@ -46,8 +46,6 @@ export interface SessionDeps<Shot> {
   /** Small preview of a shot for the selection screen (a JPEG data URL). */
   thumb(shot: Shot): string;
   deliver(input: DeliverInput<Shot>): Promise<DeliverResult>;
-  /** Builds and saves the book keychain file once the cashier confirms payment. */
-  deliverBook(input: BookInput<Shot>): Promise<void>;
   newCode(): string;
   random(): number;
   log(text: string, level?: 'info' | 'ok' | 'err'): void;
@@ -69,9 +67,8 @@ export class BoothSession<Shot = unknown> {
   private taken: { code: string; shots: Shot[]; run: number } | null = null;
   /** Deals each session's poses so back-to-back groups get different ones. */
   private readonly promptBag: PromptBag;
-  /** The finished session on the book offer screen, until the result screen opens. */
-  private offering: { code: string; shots: Shot[]; frame: FrameId; run: number; result: DeliverResult } | null =
-    null;
+  /** The finished session on the book info screen, until the result screen opens. */
+  private offering: { run: number; result: DeliverResult } | null = null;
   private readonly sleep: (ms: number, signal: AbortSignal) => Promise<void>;
 
   constructor(
@@ -195,11 +192,8 @@ export class BoothSession<Shot = unknown> {
       case 'cancelUpgrade':
         this.declineUpgrade();
         break;
-      case 'buyBook':
-        this.buyBook();
-        break;
-      case 'skipBook':
-        this.skipBook();
+      case 'nextFromOffer':
+        this.nextFromOffer();
         break;
       case 'finish':
         if (this.current.phase === 'result') this.reset();
@@ -242,7 +236,7 @@ export class BoothSession<Shot = unknown> {
   /** Guest wants the big print. Waits for the operator to confirm payment. */
   requestUpgrade(): void {
     if (this.current.phase !== 'select' || this.current.upgradePending) return;
-    this.nextPhase(); // no auto-continue while the operator is busy with payment
+    this.armSelectTimeout(); // the request lapses if the operator doesn't answer in time
     this.deps.log('Tamu minta versi besar — konfirmasi pembayaran di Mac', 'ok');
     this.set({ upgradePending: true });
   }
@@ -263,29 +257,21 @@ export class BoothSession<Shot = unknown> {
 
   /* ---------- Book keychain offer ---------- */
 
-  /** Guest tapped "Mau": save the book file for printing and go straight to the QR. */
-  buyBook(): void {
-    const o = this.offering;
-    if (this.current.phase !== 'offer' || !o) return;
-    this.deps.log('Tamu ambil gantungan kunci buku', 'ok');
-    this.set({ book: true });
-    void this.deps
-      .deliverBook({ code: o.code, shots: o.shots, frame: o.frame })
-      .catch((err: unknown) =>
-        this.deps.log(`Gagal membuat file buku: ${err instanceof Error ? err.message : String(err)}`, 'err'),
-      );
-    this.showResult();
-  }
-
-  /** "Nggak dulu": on to the result screen. */
-  skipBook(): void {
+  /** "Next" on the book info screen: on to the result screen. */
+  nextFromOffer(): void {
     if (this.current.phase !== 'offer') return;
     this.showResult();
   }
 
   private showOffer(): void {
     const signal = this.nextPhase();
-    this.set({ phase: 'offer', busy: false, offerId: this.current.offerId + 1 });
+    this.set({
+      phase: 'offer',
+      busy: false,
+      offerId: this.current.offerId + 1,
+      timerMs: OFFER_MS,
+      timerId: this.current.timerId + 1,
+    });
     this.after(OFFER_MS, signal, () => {
       this.deps.log('Waktu penawaran buku habis');
       this.showResult();
@@ -300,6 +286,8 @@ export class BoothSession<Shot = unknown> {
     this.set({
       phase: 'result',
       busy: false,
+      timerMs: RESULT_MS,
+      timerId: this.current.timerId + 1,
       thumbs: [], // big payload; not needed any more
       link: o.result.link,
       stripThumb: o.result.stripThumb,
@@ -313,7 +301,13 @@ export class BoothSession<Shot = unknown> {
 
   private armSelectTimeout(): void {
     const signal = this.nextPhase();
+    this.set({ timerMs: SELECT_TIMEOUT_MS, timerId: this.current.timerId + 1 });
     this.after(SELECT_TIMEOUT_MS, signal, () => {
+      if (this.current.upgradePending) {
+        this.deps.log('Waktu habis, permintaan versi besar dibatalkan — kembali memilih foto');
+        this.declineUpgrade();
+        return;
+      }
       // Fill the strip with the earliest photos the guest didn't pick, then carry on.
       const picked = [...this.current.selected];
       for (const i of ALL_SHOTS) if (picked.length < STRIP_SHOTS && !picked.includes(i)) picked.push(i);
@@ -352,7 +346,10 @@ export class BoothSession<Shot = unknown> {
         this.deps.log('Sesi dibatalkan');
         return;
       }
-      throw err;
+      // The camera failed mid-session: don't leave the guest stuck on the countdown.
+      this.deps.log(`Gagal mengambil foto: ${err instanceof Error ? err.message : String(err)}`, 'err');
+      if (run === this.run) this.reset();
+      return;
     }
 
     if (run !== this.run) return;
@@ -400,8 +397,8 @@ export class BoothSession<Shot = unknown> {
     const [result] = await Promise.all([delivered, minReveal]);
 
     if (run !== this.run) return; // operator reset during the reveal
-    // The QR and strip are ready now, but the book offer comes first.
-    this.offering = { code, shots, frame, run, result };
+    // The QR and strip are ready now, but the book info screen comes first.
+    this.offering = { run, result };
     this.showOffer();
   }
 }

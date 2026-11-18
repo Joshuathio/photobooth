@@ -70,7 +70,7 @@ html {
   background-image: var(--grain);
 }
 
-/* Cream letters, fat red outline, slightly roughened edge. */
+/* Cream letters with a fat red outline. */
 .sticker {
   font-family: var(--font-chunky);
   font-weight: 400;
@@ -79,7 +79,6 @@ html {
   paint-order: stroke fill;
   line-height: 1;
   letter-spacing: 0.005em;
-  filter: url(#dearly-rough);
 }
 .sticker--script {
   font-family: var(--font-script);
@@ -141,5 +140,4 @@ html {
 .star {
   display: block;
   color: var(--red);
-  filter: url(#dearly-rough);
 }

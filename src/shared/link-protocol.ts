@@ -26,10 +26,8 @@ export type GuestIntent =
   | { type: 'upgrade' }
   /** Changed their mind about the big print. */
   | { type: 'cancelUpgrade' }
-  /** Wants the book keychain: its file is saved for printing, then on to the QR. */
-  | { type: 'buyBook' }
-  /** "Nggak dulu" on the book offer. */
-  | { type: 'skipBook' }
+  /** "Next" on the book info screen: on to the QR. */
+  | { type: 'nextFromOffer' }
   | { type: 'finish' };
 
 export type LinkMessage =

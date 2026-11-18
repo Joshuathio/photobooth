@@ -28,15 +28,16 @@ file statis di mana saja.
   (`src/booth/prompts.ts`), jadi pose yang sama baru muncul lagi setelah semua pose gaya itu terpakai. Daftar pose ada
   di `DECKS` (`src/booth/config.ts`). Tombol "Kembali" balik ke pilih set
 - **8 foto** dengan arahan pose, countdown, dan flash (8 arahan berbeda per gaya)
-- **Pilih 4 foto** favorit untuk strip (tap di tablet). Kalau 45 detik tidak selesai, otomatis dipakai foto paling awal
+- **Pilih 4 foto** favorit untuk strip (tap di tablet). Kalau 1 menit tidak selesai, otomatis dipakai foto paling awal
 - **Upsell versi besar**: tombol "Suka semua?" mencetak semua 8 foto ukuran kecil landscape (3,5 × 2,55 cm), 2 set.
-  Tablet menunggu sampai kasir menekan **Sudah bayar, cetak versi besar** di Mac (atau "Batal upgrade")
+  Tablet menunggu sampai kasir menekan **Sudah bayar, cetak versi besar** di Mac (atau "Batal upgrade"); kalau 1 menit tidak dijawab, permintaan batal dan tamu kembali memilih 4 foto
 - **Gacha frame** dengan animasi kapsul, diundi dari frame di set yang dipilih (peluang sama). Set A = 5 frame
   "Minimal" dari desainer (frame 1–5), Set B = 3 frame "Bifest" (BINUS Festival, frame 6–8)
-- **Penawaran gantungan kunci buku (+15rb)** setelah gacha, sebelum QR: layar dengan buku mini berisi foto tamu dan
-  timer 30 detik. "Mau" → file `buku-KODE.jpg` (16 foto landscape, 8 foto × 2, sama seperti versi besar) langsung
-  di-download untuk dicetak, lalu layar QR (tamu diingatkan bayar 15rb ke kasir). Timer habis / "Nggak dulu" → hasil
-- Hasil (45 detik): strip, frame, QR code ke galeri, kode sesi
+- **Info gantungan kunci buku (+15rb / 2 buku 25rb)** setelah gacha, sebelum QR: layar dengan buku mini berisi foto
+  tamu. Tamu yang mau bilang ke kru dan bayar di kasir; layar hanya info, tidak ada tombol beli, tamu menekan
+  "Next" ke layar hasil (otomatis lanjut sendiri setelah 1 menit kalau ditinggal). Operator membuat file
+  `buku-KODE.jpg` (16 foto landscape, 8 foto × 2) lewat "Download file buku" di panel Hasil terakhir.
+- Hasil (90 detik): strip, frame, QR code ke galeri, kode sesi
 - Layar penuh otomatis saat disentuh, layar tidak mati selama dipakai
 
 **Proses foto**
@@ -45,7 +46,7 @@ file statis di mana saja.
   berisi 8 foto (4 kolom × 2 baris) dengan logo di samping; di file cetak isinya diputar 90° supaya potongan 2x6
   printer jatuh di antara dua bagian. Versi digital 8 foto: grid landscape 2×4.
   Story 1080×1920, GIF 8 frame 480×320, warna sesuai frame gacha
-- Kode sesi 6 karakter dicetak di strip (tanpa huruf yang mirip seperti 0/O dan 1/I/L)
+- Kode sesi 6 karakter tampil di layar tablet, tidak dicetak di strip (tanpa huruf yang mirip seperti 0/O dan 1/I/L)
 - Upload ke Cloudinary; kalau cloud belum diatur atau upload gagal, file di-download lokal
 - Lembar cetak selalu di-download ke Mac untuk dicetak (`sheet-KODE.jpg` / `sheet-KODE-besar.jpg`). Keduanya berisi
   2 bagian identik, jadi dicetak dengan setelan potong 2x6 yang sama
@@ -167,7 +168,7 @@ layar tablet. Untuk menambah frame:
 2. Di `FRAMES` (`src/booth/gacha.ts`) isi `art: { sheet, thumb }`, warna latar (`bg`), warna tulisan (`ink`) dan
    `outline` kalau tulisannya bergaris tepi (seperti frame gingham).
 
-Foto digambar di bawah PNG, lalu kode sesi dicetak tegak di margin kiri bawah (`MARGIN_CODE_X/Y` di `config.ts`).
+Foto digambar di bawah PNG; kode sesi tidak dicetak di strip.
 Versi besar/buku dan sheet digital 8 foto memakai warna frame dengan tulisan "with love, Dearly". Frame tanpa
 `art` digambar dari warna + pola (`paintFrame` di `src/booth/compose.ts`).
 

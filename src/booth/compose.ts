@@ -22,8 +22,6 @@ import {
   GIF_FRAME_MS,
   GIF_H,
   GIF_W,
-  MARGIN_CODE_X,
-  MARGIN_CODE_Y,
   MARGIN_TOP,
   MARGIN_X,
   SHEET_H,
@@ -36,7 +34,6 @@ import type { FrameStyle } from './gacha';
 import { containRect, coverCrop } from './layout';
 
 export interface StripInfo {
-  code: string;
   eventName: string;
   date: Date;
 }
@@ -67,7 +64,6 @@ export async function ensureFonts(): Promise<void> {
       document.fonts.load(`400 62px ${FONTS.script}`),
       document.fonts.load(`400 34px ${FONTS.chunky}`),
       document.fonts.load(`400 24px ${FONTS.body}`),
-      document.fonts.load(`800 21px ${FONTS.text}`),
     ]);
   } catch {
     // Fonts are bundled, so this only fails in very old browsers; the fallback is fine.
@@ -194,8 +190,8 @@ export function paintFrame(
 
 /**
  * One strip at x = ox. Art frames: photos in the template holes, the designer's
- * PNG on top, and the session code sideways in the left margin. Other frames:
- * colour + pattern with a drawn footer.
+ * PNG on top. Other frames: colour + pattern with a drawn footer. The session
+ * code is not printed; guests get it on the tablet and in the QR link.
  */
 function drawStrip(
   ctx: CanvasRenderingContext2D,
@@ -215,16 +211,6 @@ function drawStrip(
     // The sheet holds two identical strips; use the left one.
     ctx.drawImage(art, 0, 0, art.width / 2, art.height, ox, 0, STRIP_W, SHEET_H);
 
-    ctx.save();
-    ctx.translate(ox + MARGIN_CODE_X, MARGIN_CODE_Y);
-    ctx.rotate(-Math.PI / 2); // reads bottom to top, like the margin text in the art
-    ctx.font = `800 21px ${FONTS.text}`;
-    ctx.letterSpacing = '1px';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = solidInk(frame);
-    ctx.fillText(`KODE ${info.code}`, 0, 0);
-    ctx.restore();
     return;
   }
 
@@ -247,7 +233,6 @@ function drawStrip(
     ['Photobooth', frame.accent, `400 32px ${FONTS.chunky}`, 132],
     [date, frame.dim, `400 22px ${FONTS.body}`, 174],
     [info.eventName, frame.dim, `400 20px ${FONTS.body}`, 206],
-    [`Kode ${info.code}`, frame.ink, `400 28px ${FONTS.chunky}`, 252],
   ];
   ctx.textAlign = 'center';
   for (const [text, color, font, dy] of lines) {
@@ -312,8 +297,6 @@ export function buildBigPrint(
       const small: [string, string, number][] = [
         [date, `400 15px ${FONTS.body}`, 306],
         [info.eventName, `400 12px ${FONTS.body}`, 328],
-        ['Kode', `400 13px ${FONTS.body}`, 362],
-        [info.code, `400 20px ${FONTS.chunky}`, 386],
       ];
       ctx.fillStyle = ink;
       for (const [text, font, dy] of small) {
@@ -328,8 +311,6 @@ export function buildBigPrint(
       ['Photobooth', frame.accent, `400 16px ${FONTS.chunky}`, 264],
       [date, frame.dim, `400 15px ${FONTS.body}`, 306],
       [info.eventName, frame.dim, `400 12px ${FONTS.body}`, 328],
-      ['Kode', frame.dim, `400 13px ${FONTS.body}`, 362],
-      [info.code, frame.ink, `400 20px ${FONTS.chunky}`, 386],
     ];
     for (const [text, color, font, dy] of lines) {
       if (!text) continue;
@@ -383,7 +364,6 @@ export function buildAllSheet(
     const small: [string, string, number][] = [
       [date, `400 26px ${FONTS.body}`, 84],
       [info.eventName, `400 22px ${FONTS.body}`, 120],
-      [`Kode ${info.code}`, `400 32px ${FONTS.chunky}`, 168],
     ];
     ctx.fillStyle = solidInk(frame);
     for (const [text, font, dy] of small) {
@@ -398,7 +378,6 @@ export function buildAllSheet(
     ['Photobooth', frame.accent, `400 36px ${FONTS.chunky}`, left, 166],
     [date, frame.dim, `400 26px ${FONTS.body}`, right, 84],
     [info.eventName, frame.dim, `400 22px ${FONTS.body}`, right, 120],
-    [`Kode ${info.code}`, frame.ink, `400 32px ${FONTS.chunky}`, right, 168],
   ];
   ctx.textAlign = 'center';
   for (const [text, color, font, x, dy] of lines) {

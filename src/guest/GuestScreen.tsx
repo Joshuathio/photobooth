@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { BOOK_PRICE, BOOK_PRICE_TAG, DECKS, OFFER_MS, SHOTS, type Deck, type DeckId } from '../booth/config';
+import { BOOK_PRICE_TAG, DECKS, SHOTS, type Deck, type DeckId } from '../booth/config';
 import { FRAME_SETS, frameById, framesInSet, setById, type FrameStyle, type SetId } from '../booth/gacha';
 import type { GuestIntent } from '../shared/link-protocol';
 import type { GuestView } from '../shared/view';
-import { Burst, Confetti, RoughFilter, Star } from '../ui/Decor';
+import { Burst, Star } from '../ui/Decor';
 import { useQr } from '../ui/useQr';
 import '../ui/brand.css';
 import './guest-screen.css';
@@ -26,7 +26,6 @@ interface Props {
 export function GuestScreen({ view, preview, onIntent }: Props) {
   return (
     <div className={`gs ${view.phase === 'idle' ? 'sky-bg' : 'gingham'} gs--${view.phase}`}>
-      <RoughFilter />
       {view.phase === 'idle' && <Attract preview={preview} onStart={() => onIntent({ type: 'start' })} />}
       {view.phase === 'set' && <SetPicker chosen={view.set} onIntent={onIntent} />}
       {view.phase === 'deck' && (
@@ -41,8 +40,45 @@ export function GuestScreen({ view, preview, onIntent }: Props) {
       {view.phase === 'reveal' && <Reveal view={view} />}
       {view.phase === 'offer' && <BookOffer key={view.offerId} view={view} onIntent={onIntent} />}
       {view.phase === 'result' && <Result view={view} onFinish={() => onIntent({ type: 'finish' })} />}
-      {view.preview && <div className="gs-preview-note sticky">Pratinjau desain</div>}
+      {(view.phase === 'select' || view.phase === 'offer' || view.phase === 'result') && <Clock view={view} />}
+      {view.preview && <div className="gs-preview-note sticky">Preview</div>}
     </div>
+  );
+}
+
+/* ---------- Countdown ---------- */
+/** Seconds left of the countdown the session started, restarting whenever it does. */
+function useCountdown(ms: number | null, id: number): number | null {
+  const [left, setLeft] = useState<number | null>(() => (ms === null ? null : Math.ceil(ms / 1000)));
+  useEffect(() => {
+    if (ms === null) {
+      setLeft(null);
+      return;
+    }
+    const end = Date.now() + ms;
+    const tick = () => setLeft(Math.max(0, Math.ceil((end - Date.now()) / 1000)));
+    tick();
+    const timer = setInterval(tick, 250);
+    return () => clearInterval(timer);
+  }, [ms, id]);
+  return left;
+}
+
+const CLOCK_LABELS: Partial<Record<GuestView['phase'], string>> = {
+  select: 'Time left to pick',
+  offer: 'Moving on in',
+  result: 'Back to start in',
+};
+
+/** Small pill at the bottom of the screen so guests know how long they have. */
+function Clock({ view }: { view: GuestView }) {
+  const left = useCountdown(view.timerMs, view.timerId);
+  if (left === null) return null;
+  const time = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  return (
+    <span className="gs-clock" role="timer" aria-label={`${left} seconds left`}>
+      {CLOCK_LABELS[view.phase]} <b>{time}</b>
+    </span>
   );
 }
 
@@ -86,44 +122,100 @@ function Logo({ className = '' }: { className?: string }) {
 function Attract({ preview, onStart }: { preview: ReactNode; onStart(): void }) {
   return (
     <div className="gs-attract" onClick={onStart}>
-      <Confetti />
-      <Burst size={150} className="gs-attract__burst" />
-      <Star size={42} className="gs-attract__star1" />
-      <Star size={30} className="gs-attract__star2" />
-      <Star size={54} className="gs-attract__star3" />
+      <Floaters />
 
-      <div className="gs-attract__left">
-        <Logo />
-        <p className="gs-attract__lede paper">Ikutin arahan pose di layar. Frame-nya? Diundi.</p>
-        <button type="button" className="gs-attract__cta tag">
-          Tap buat mulai
-        </button>
-      </div>
-
-      <div className="gs-attract__photo">
-        <div className="gs-attract__shadow">
-          <div className="stamp">
-            <div className="gs-attract__live">{preview}</div>
+      <div className="gs-attract__stage">
+        <div className="gs-attract__left">
+          <Logo />
+          <p className="gs-attract__lede">Strike a pose, we’ll pick your frame!</p>
+          <div className="gs-attract__ctawrap">
+            <button type="button" className="gs-attract__cta">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M9 11V5.5a1.5 1.5 0 0 1 3 0V10" />
+                <path d="M12 10V9a1.5 1.5 0 0 1 3 0v1.5" />
+                <path d="M15 10.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1.2a6 6 0 0 1-4.7-2.3L4 15.5a1.6 1.6 0 0 1 2.5-2L9 16" />
+              </svg>
+              Tap to start
+            </button>
           </div>
         </div>
-        <span className="gs-attract__you tag">Ini kamu!</span>
+
+        <div className="gs-attract__right">
+          <div className="gs-attract__photo">
+            <div className="gs-attract__shadow">
+              <div className="stamp">
+                <div className="gs-attract__live">
+                  {preview}
+                  <span className="gs-attract__livetag">
+                    <i />
+                    LIVE
+                  </span>
+                </div>
+              </div>
+            </div>
+            <span className="gs-attract__you tag">Get ready!</span>
+          </div>
+
+          <aside className="gs-odds sticky">
+            <span className="tape gs-odds__tape" />
+            <p className="gs-odds__title">Frames you might get</p>
+            <ul>
+              {FRAME_SETS.map((set) => (
+                <li key={set.id}>
+                  <b className="gs-odds__set tag">{set.label}</b>
+                  <span className="gs-odds__strips">
+                    {framesInSet(set.id).map((f) => (
+                      <MiniStrip key={f.id} frame={f} />
+                    ))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </aside>
+        </div>
       </div>
 
-      <aside className="gs-odds sticky">
-        <p className="gs-odds__title">Pilih set, frame-nya diundi</p>
-        <ul>
-          {FRAME_SETS.map((set) => (
-            <li key={set.id}>
-              <b>{set.label}</b>
-              <span className="gs-odds__strips">
-                {framesInSet(set.id).map((f) => (
-                  <MiniStrip key={f.id} frame={f} />
-                ))}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </aside>
+      <div className="gs-attract__ribbon gingham">
+        <span>with love, Dearly</span>
+      </div>
+    </div>
+  );
+}
+
+/* Four-point sparkles twinkling in the empty blue: mostly cream, just a few red. */
+const SPARKLES = [
+  { left: 44, top: 120, size: 30, delay: 0, dur: 3.2, red: false },
+  { left: 596, top: 70, size: 36, delay: 1.2, dur: 3.8, red: false },
+  { left: 376, top: 30, size: 22, delay: 0.5, dur: 2.8, red: false },
+  { left: 820, top: 34, size: 24, delay: 1.8, dur: 3.4, red: false },
+  { left: 1190, top: 60, size: 44, delay: 0.3, dur: 3.6, red: true },
+  { left: 1232, top: 230, size: 26, delay: 2.1, dur: 3.0, red: false },
+  { left: 1226, top: 440, size: 34, delay: 1, dur: 3.9, red: false },
+  { left: 600, top: 440, size: 30, delay: 0.8, dur: 3.1, red: false },
+  { left: 598, top: 570, size: 24, delay: 1.5, dur: 2.9, red: false },
+  { left: 60, top: 600, size: 34, delay: 0.6, dur: 3.7, red: true },
+  { left: 330, top: 640, size: 26, delay: 1.9, dur: 3.3, red: false },
+  { left: 560, top: 650, size: 32, delay: 0.2, dur: 4.0, red: false },
+  { left: 960, top: 652, size: 26, delay: 1.4, dur: 2.7, red: false },
+  { left: 1160, top: 640, size: 36, delay: 2.4, dur: 3.5, red: true },
+  { left: 230, top: 590, size: 20, delay: 1.1, dur: 3.2, red: false },
+];
+
+function Floaters() {
+  return (
+    <div className="gs-float" aria-hidden="true">
+      {SPARKLES.map((s, i) => (
+        <svg
+          key={`k${i}`}
+          className={`gs-float__spark ${s.red ? 'is-red' : ''}`}
+          width={s.size}
+          height={s.size}
+          viewBox="0 0 24 24"
+          style={{ left: s.left, top: s.top, animationDelay: `${s.delay}s`, animationDuration: `${s.dur}s` }}
+        >
+          <path d="M12 0C12.8 7.2 16.8 11.2 24 12C16.8 12.8 12.8 16.8 12 24C11.2 16.8 7.2 12.8 0 12C7.2 11.2 11.2 7.2 12 0Z" />
+        </svg>
+      ))}
     </div>
   );
 }
@@ -170,10 +262,10 @@ function SetPicker({ chosen, onIntent }: { chosen: SetId | null; onIntent(intent
       <Star size={30} className="gs-sets__star2" />
       <Star size={24} className="gs-sets__star3" />
       <button type="button" className="gs-back" onClick={() => onIntent({ type: 'cancel' })}>
-        Batal
+        Cancel
       </button>
-      <h1 className="gs-title sticker gs-sets__title">Pilih set frame-mu</h1>
-      <p className="gs-sets__sub">Frame-nya tetap diundi, tapi cuma dari set yang kamu pilih.</p>
+      <h1 className="gs-title sticker gs-sets__title">Pick a set!</h1>
+      <p className="gs-sets__sub">Frame’s a surprise, we pick one for you.</p>
 
       <ul className="gs-sets__cards">
         {FRAME_SETS.map((set) => {
@@ -206,7 +298,7 @@ function SetPicker({ chosen, onIntent }: { chosen: SetId | null; onIntent(intent
                   <span className="gs-setcard__names">
                     Frame {frameNo(frames[0])}–{frameNo(frames[frames.length - 1])}
                   </span>
-                  <span className="gs-setcard__odds">tiap frame 1 dari {frames.length}</span>
+                  <span className="gs-setcard__odds">1 of {frames.length}</span>
                 </span>
               </button>
             </li>
@@ -217,8 +309,8 @@ function SetPicker({ chosen, onIntent }: { chosen: SetId | null; onIntent(intent
       <div className="gs-sets__bar">
         <span className="gs-sets__hint sticky">
           {chosen
-            ? `Kamu bakal dapet salah satu dari ${framesInSet(chosen).length} frame ${setById(chosen).label}`
-            : 'Tap salah satu set dulu ya'}
+            ? `You’ll get 1 of the ${framesInSet(chosen).length} ${setById(chosen).label} frames`
+            : 'Choose a set.'}
         </span>
         <button
           type="button"
@@ -226,7 +318,7 @@ function SetPicker({ chosen, onIntent }: { chosen: SetId | null; onIntent(intent
           aria-disabled={!chosen}
           onClick={() => chosen && onIntent({ type: 'confirmSet' })}
         >
-          {chosen ? `Pakai ${setById(chosen).label}` : 'Pakai set ini'}
+          {chosen ? `Choose ${setById(chosen).label}` : 'Choose a set'}
         </button>
       </div>
     </div>
@@ -262,11 +354,11 @@ function DeckPicker({ set, onPick, onBack }: { set: SetId | null; onPick(deck: D
       <Star size={46} className="gs-deck__star1" />
       <Star size={30} className="gs-deck__star2" />
       <button type="button" className="gs-back" onClick={onBack}>
-        Kembali
+        Back
       </button>
       {set && <span className="gs-deck__set sticky">{setById(set).label}</span>}
-      <h1 className="gs-title sticker">Mau gaya apa?</h1>
-      <p className="gs-deck__sub">Pilih satu, nanti tiap foto ada arahan pose-nya.</p>
+      <h1 className="gs-title sticker">Pick your style</h1>
+      <p className="gs-deck__sub">Pick one, every shot comes with a pose prompt.</p>
       <ul className="gs-deck__cards">
         {(Object.keys(DECKS) as DeckId[]).map((id) => {
           const deck: Deck = DECKS[id];
@@ -289,7 +381,7 @@ function DeckPicker({ set, onPick, onBack }: { set: SetId | null; onPick(deck: D
                   </span>
                 )}
                 <span className="gs-card__more">
-                  {deck.free ? 'Kalian yang atur' : `${DRAWN} pose acak dari ${deck.prompts.length}`}
+                  {deck.free ? 'You’re in charge' : `${DRAWN} random poses out of ${deck.prompts.length}`}
                 </span>
               </button>
             </li>
@@ -324,12 +416,12 @@ function Capture({ view, preview }: { view: GuestView; preview: ReactNode }) {
       {view.prompt && (
         <div className="gs-prompt" key={view.shot}>
           <span className="gs-prompt__step sticky">
-            Foto {Math.min(view.shot + 1, view.totalShots)} dari {view.totalShots}
+            Photo {Math.min(view.shot + 1, view.totalShots)} of {view.totalShots}
           </span>
           <p className="tag">{view.prompt}</p>
         </div>
       )}
-      <div className="gs-progress paper" aria-label={`Foto ${Math.min(view.shot + 1, view.totalShots)} dari ${view.totalShots}`}>
+      <div className="gs-progress paper" aria-label={`Photo ${Math.min(view.shot + 1, view.totalShots)} of ${view.totalShots}`}>
         {Array.from({ length: view.totalShots }, (_, i) => (
           <Star key={i} size={24} className={i < view.shot ? 'is-done' : i === view.shot ? 'is-now' : ''} />
         ))}
@@ -346,8 +438,8 @@ function Select({ view, onIntent }: { view: GuestView; onIntent(intent: GuestInt
   return (
     <div className="gs-sheet paper gs-select">
       <Star size={40} className="gs-select__star" />
-      <h1 className="gs-title sticker">Pilih {view.pickCount} foto favoritmu</h1>
-      <p className="gs-select__sub">Tap fotonya. Yang kamu pilih masuk ke strip.</p>
+      <h1 className="gs-title sticker">Pick your {view.pickCount} favorite photos</h1>
+      <p className="gs-select__sub">Tap a photo to add it to your strip.</p>
 
       <ul className="gs-select__grid">
         {tiles.map((i) => {
@@ -358,7 +450,7 @@ function Select({ view, onIntent }: { view: GuestView; onIntent(intent: GuestInt
                 type="button"
                 className={`gs-tile ${on ? 'is-on' : ''} ${full && !on ? 'is-muted' : ''}`}
                 aria-pressed={on}
-                aria-label={`Foto ${i + 1}`}
+                aria-label={`Photo ${i + 1}`}
                 onClick={() => onIntent({ type: 'toggle', index: i })}
               >
                 {view.thumbs[i] ? (
@@ -381,13 +473,9 @@ function Select({ view, onIntent }: { view: GuestView; onIntent(intent: GuestInt
       </ul>
 
       <div className="gs-select__bar">
-        <button type="button" className="gs-upsell sticky" onClick={() => onIntent({ type: 'upgrade' })}>
-          <b>Suka semua?</b>
-          <span>Ambil versi besar: semua {view.totalShots} foto, dicetak 2 set</span>
-        </button>
         <div className="gs-select__go">
           <span className="gs-select__count">
-            {count} dari {view.pickCount} dipilih
+            {count} of {view.pickCount} picked
           </span>
           <button
             type="button"
@@ -395,7 +483,7 @@ function Select({ view, onIntent }: { view: GuestView; onIntent(intent: GuestInt
             aria-disabled={!full}
             onClick={() => full && onIntent({ type: 'confirm' })}
           >
-            Lanjut
+            Next
           </button>
         </div>
       </div>
@@ -404,13 +492,13 @@ function Select({ view, onIntent }: { view: GuestView; onIntent(intent: GuestInt
         <div className="gs-pending">
           <div className="gs-pending__card paper">
             <Star size={44} className="gs-pending__star" />
-            <h2 className="sticker">Versi besar!</h2>
+            <h2 className="sticker">Big version!</h2>
             <p>
-              Semua {view.totalShots} foto dicetak ukuran kecil, 2 set: buat kamu dan temanmu. Bayar ke kasir
-              dulu ya, setelah dikonfirmasi langsung lanjut.
+              All {view.totalShots} photos printed small, in 2 sets: one for you and one for a friend. Pay at the
+              cashier first, and we’ll continue once it’s confirmed.
             </p>
             <button type="button" className="gs-pending__back" onClick={() => onIntent({ type: 'cancelUpgrade' })}>
-              Nggak jadi, pilih {view.pickCount} aja
+              Never mind, just pick {view.pickCount}
             </button>
           </div>
         </div>
@@ -426,7 +514,7 @@ function Reveal({ view }: { view: GuestView }) {
     <div className="gs-reveal">
       <Burst size={220} className="gs-reveal__burst1" />
       <Burst size={140} className="gs-reveal__burst2" />
-      <p className="gs-reveal__rolling sticker sticker--script">Lagi diundi…</p>
+      <p className="gs-reveal__rolling sticker">Rolling…</p>
       <div className="gs-capsule" aria-hidden="true">
         <span className="gs-capsule__top" />
         <span className="gs-capsule__bottom" />
@@ -434,54 +522,19 @@ function Reveal({ view }: { view: GuestView }) {
       <div className="gs-reveal__prize">
         <MiniStrip frame={frame} className="gs-mini--prize" />
         <div className="gs-reveal__text">
-          <p className="sticker sticker--script">Kamu dapet</p>
+          <p className="sticker">You got</p>
           <h1 className="gs-reveal__name sticker" style={frameVars(frame)}>
             {frame.name}
           </h1>
-          <p className="gs-reveal__set tag">dari {setById(frame.set).label}</p>
+          <p className="gs-reveal__set tag">from {setById(frame.set).label}</p>
         </div>
       </div>
-      <p className="gs-reveal__status paper">{view.busy ? 'Lagi nyiapin fotomu…' : 'Siap!'}</p>
+      <p className="gs-reveal__status paper">{view.busy ? 'Getting your photos ready…' : 'Almost there…'}</p>
     </div>
   );
 }
 
 /* ---------- Book keychain offer ---------- */
-/** Whole seconds left, counted locally from when the offer opened. */
-function useSecondsLeft(totalMs: number): number {
-  const start = useRef(Date.now());
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 250);
-    return () => clearInterval(id);
-  }, []);
-  return Math.max(0, Math.ceil((totalMs - (now - start.current)) / 1000));
-}
-
-/** Countdown ring; the bar drains in one smooth CSS animation over the whole offer. */
-function TimerRing({ size, seconds }: { size: number; seconds: number }) {
-  const r = size / 2 - 9;
-  const c = 2 * Math.PI * r;
-  return (
-    <div className="gs-timer" style={{ width: size, height: size }} role="timer" aria-label={`${seconds} detik lagi`}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
-        <circle cx={size / 2} cy={size / 2} r={r} className="gs-timer__track" />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          className="gs-timer__bar"
-          strokeDasharray={c}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          style={{ '--c': c, animationDuration: `${OFFER_MS}ms` } as CSSProperties}
-        />
-      </svg>
-      <span className="gs-timer__num">{seconds}</span>
-      <span className="gs-timer__unit">detik</span>
-    </div>
-  );
-}
-
 /** A photo from the session, or a soft placeholder in design preview. */
 function Thumb({ src, i }: { src: string | undefined; i: number }) {
   return src ? <img src={src} alt="" /> : <span className={`gs-tile__blank gs-tile__blank--${i % 3}`} />;
@@ -530,8 +583,6 @@ function BookKeychain({ view }: { view: GuestView }) {
 }
 
 function BookOffer({ view, onIntent }: { view: GuestView; onIntent(intent: GuestIntent): void }) {
-  const seconds = useSecondsLeft(OFFER_MS);
-  const total = Math.round(OFFER_MS / 1000);
   return (
     <div className="gs-offer">
       <Star size={40} className="gs-offer__s1" />
@@ -540,11 +591,11 @@ function BookOffer({ view, onIntent }: { view: GuestView; onIntent(intent: Guest
       <BookKeychain view={view} />
 
       <div className="gs-sheet paper gs-offer__card">
-        <p className="gs-offer__kicker sticker sticker--script">Satu lagi…</p>
-        <h1 className="gs-title sticker gs-offer__title">Mau versi buku?</h1>
+        <p className="gs-offer__kicker">One more thing…</p>
+        <h1 className="gs-title sticker gs-offer__title">Want a mini book?</h1>
         <p className="gs-offer__lede">
-          Semua {view.totalShots} fotomu dijadiin <b>buku mini gantungan kunci</b>. Pas buat digantung di tas atau
-          kunci motor.
+          All {view.totalShots} of your photos turned into a <b>mini keychain book</b>. Perfect for hanging on your
+          bag or keys.
         </p>
         <div className="gs-offer__thumbs" aria-hidden="true">
           {Array.from({ length: view.totalShots }, (_, i) => (
@@ -553,19 +604,20 @@ function BookOffer({ view, onIntent }: { view: GuestView; onIntent(intent: Guest
             </span>
           ))}
         </div>
-        <div className="gs-offer__row">
-          <TimerRing size={132} seconds={seconds} />
-          <div className="gs-offer__expire">
-            <span className="gs-offer__left">Cuma {total} detik!</span>
-            <span className="gs-offer__note">Kalau waktunya habis, penawarannya hilang dan fotomu langsung muncul.</span>
-          </div>
-        </div>
         <div className="gs-offer__actions">
-          <button type="button" className="gs-offer__yes tag" onClick={() => onIntent({ type: 'buyBook' })}>
-            Mau, tambah buku!
-          </button>
-          <button type="button" className="gs-offer__no" onClick={() => onIntent({ type: 'skipBook' })}>
-            Nggak dulu
+          <div className="gs-offer__buy" aria-hidden="true">
+            <div className="gs-offer__yes tag">
+              1 book
+              <small>15K</small>
+            </div>
+            <div className="gs-offer__yes gs-offer__yes--deal tag">
+              2 books
+              <small>25K · save 5K</small>
+            </div>
+          </div>
+          <p className="gs-offer__left">Want one? Just tell our crew and pay at the cashier.</p>
+          <button type="button" className="gs-next" onClick={() => onIntent({ type: 'nextFromOffer' })}>
+            Next
           </button>
         </div>
       </div>
@@ -577,15 +629,13 @@ function BookOffer({ view, onIntent }: { view: GuestView; onIntent(intent: Guest
 function Result({ view, onFinish }: { view: GuestView; onFinish(): void }) {
   const frame = frameById(view.frame ?? 'f1');
   const qr = useQr(view.link);
-  const printing =
-    (view.pkg === 'big' ? 'Versi besarmu lagi dicetak' : 'Strip-nya lagi dicetak') +
-    (view.book ? `, gantungan kunci bukumu juga. Bayar ${BOOK_PRICE} buat bukunya ke kasir ya.` : '.');
+  const printing = view.pkg === 'big' ? 'Your big version is printing.' : 'Your strip is printing.';
   return (
     <div className={`gs-result ${view.pkg === 'big' ? 'gs-result--big' : ''}`}>
       <div className="gs-result__strip">
         <span className="tape gs-result__tape1" />
         {view.stripThumb ? (
-          <img src={view.stripThumb} alt="Strip foto kamu" />
+          <img src={view.stripThumb} alt="Your photo strip" />
         ) : (
           <MiniStrip frame={frame} className="gs-mini--result" />
         )}
@@ -594,24 +644,24 @@ function Result({ view, onFinish }: { view: GuestView; onFinish(): void }) {
       </div>
 
       <div className="gs-sheet paper gs-result__card">
-        <h1 className="gs-title sticker">Fotomu jadi!</h1>
+        <h1 className="gs-title sticker">Your photos are ready!</h1>
         {view.link ? (
           <p className="gs-result__copy">
-            {printing} Scan QR ini buat simpan semua {view.totalShots} foto versi digitalnya.
+            {printing} Scan this QR to save all {view.totalShots} photos in digital.
           </p>
         ) : (
           <p className="gs-result__copy">
-            {printing} {view.note ?? 'QR belum tersedia.'}
+            {printing} {view.note ?? 'QR not available yet.'}
           </p>
         )}
         <div className="gs-result__row">
           {view.link && (
             <div className="gs-result__qr">
-              <div className="stamp">{qr ? <img src={qr} alt="QR code ke halaman foto kamu" /> : <span />}</div>
+              <div className="stamp">{qr ? <img src={qr} alt="QR code to your photo page" /> : <span />}</div>
             </div>
           )}
           <div className="gs-result__meta">
-            <span className="gs-result__label">Kode kamu</span>
+            <span className="gs-result__label">Your code</span>
             <span className="tag gs-result__code">{view.code}</span>
             <span className="gs-result__label">Frame</span>
             <span className="gs-result__frame" style={frameVars(frame)}>
@@ -620,7 +670,7 @@ function Result({ view, onFinish }: { view: GuestView; onFinish(): void }) {
           </div>
         </div>
         <button type="button" className="gs-done" onClick={onFinish}>
-          Selesai
+          Done
         </button>
       </div>
     </div>

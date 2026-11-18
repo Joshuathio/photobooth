@@ -4,6 +4,7 @@
 body.gallery {
   --check-size: 72px;
   min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -48,29 +49,66 @@ body.gallery {
   margin: 0;
 }
 
+/* Only the code form on screen: sit in the middle instead of leaving a blank bottom half. */
+body.gallery:has(.code-form:not([hidden])) {
+  justify-content: center;
+  padding-bottom: 72px;
+}
 .code-form {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
+  margin-top: 14px;
+  padding-top: 38px;
+}
+.code-form__tape {
+  top: -16px;
+  left: 50%;
+  width: 118px;
+  height: 32px;
+  transform: translateX(-50%) rotate(-2deg);
 }
 .code-form h1 {
   margin: 0;
-  font-size: 36px;
+  font-size: 34px;
   text-align: center;
+}
+.code-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 0 4px;
+}
+.code-hint .hint {
+  text-align: center;
+  text-wrap: balance;
 }
 .code-form input {
   font-family: var(--font-chunky);
-  font-size: 30px;
-  letter-spacing: 0.16em;
+  font-size: 34px;
+  letter-spacing: 0.2em;
+  text-indent: 0.2em;
   text-align: center;
   text-transform: uppercase;
   color: var(--red);
-  border-radius: 10px;
-  padding: 14px;
+  background: #fffdf8;
+  border: 2.5px dashed rgba(158, 42, 43, 0.45);
+  border-radius: 12px;
+  padding: 14px 10px;
+}
+.code-form input::placeholder {
+  color: rgba(158, 42, 43, 0.25);
+}
+.code-form input:focus {
+  border-color: var(--red);
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(158, 42, 43, 0.14);
 }
 .code-form .btn {
-  padding: 15px;
-  font-size: 17px;
+  padding: 16px;
+  font-size: 18px;
 }
 
 .error {

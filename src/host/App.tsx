@@ -1,10 +1,9 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { BOOK_PRICE, DECKS, type DeckId } from '../booth/config';
-import { FRAME_SETS, FRAMES, frameById, framesInSet, odds, setById } from '../booth/gacha';
+import { FRAMES, frameById, setById } from '../booth/gacha';
 import { hasCloud } from '../booth/settings';
 import { GuestScreen, STAGE_H, STAGE_W } from '../guest/GuestScreen';
 import { PHASE_LABELS, type GuestView, type Phase } from '../shared/view';
-import { RoughFilter } from '../ui/Decor';
 import { LiveVideo } from '../ui/LiveVideo';
 import { ScaledStage } from '../ui/ScaledStage';
 import type { BoothController, HostSnapshot } from './controller';
@@ -34,7 +33,7 @@ function phaseText(v: GuestView): string {
     case 'reveal':
       return v.busy ? 'Gacha + menyiapkan foto…' : 'Gacha';
     case 'offer':
-      return `Penawaran gantungan kunci buku (${BOOK_PRICE})`;
+      return `Info gantungan kunci buku (${BOOK_PRICE})`;
     case 'result':
       return `Hasil · ${v.code ?? ''}`;
   }
@@ -70,7 +69,6 @@ export function App({ ctl }: { ctl: BoothController }) {
 
   return (
     <div className="console">
-      <RoughFilter />
       <CameraPanel s={s} ctl={ctl} />
       <aside className="console__side">
         <MirrorPanel s={s} ctl={ctl} />
@@ -185,7 +183,6 @@ function ResultPanel({ s, ctl }: PanelProps) {
               <span className={`pkg-chip ${r.pkg === 'big' ? 'is-big' : ''}`}>
                 {r.pkg === 'big' ? 'Besar · 8 foto kecil × 2' : 'Strip · 4 foto'}
               </span>
-              {r.book && <span className="pkg-chip is-big">+ Buku</span>}
             </div>
             {r.qr ? (
               <img className="result__qr" src={r.qr} alt="QR code galeri" />
@@ -197,7 +194,7 @@ function ResultPanel({ s, ctl }: PanelProps) {
                 Download ulang sheet
               </button>
               <button type="button" className="btn btn--small" onClick={() => void ctl.redownloadBook()}>
-                {r.book ? 'Download ulang buku' : 'Download file buku'}
+                Download file buku
               </button>
               {r.link && (
                 <a className="btn btn--small btn--ghost" href={r.link} target="_blank" rel="noopener">
@@ -367,29 +364,6 @@ function SettingsForm({ s, ctl }: PanelProps) {
           />
         </Field>
         <p className="hint">QR code mengarah ke URL ini ditambah kode sesi, contoh ?s=7K9XPQ.</p>
-      </section>
-
-      <section>
-        <h3>Gacha</h3>
-        {FRAME_SETS.map((set) => {
-          const frames = framesInSet(set.id);
-          const pct = odds(frames);
-          return (
-            <div key={set.id} className="odds-set">
-              <h4>{set.label}</h4>
-              <ul className="odds">
-                {frames.map((f, i) => (
-                  <li key={f.id}>
-                    <span className="swatch" style={{ background: f.bg }} />
-                    {f.name}
-                    <span>{Math.round(pct[i])}%</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
-        <p className="hint">Tamu pilih set dulu, lalu frame diundi dari set itu. Ubah bobot di src/booth/gacha.ts.</p>
       </section>
 
       <section>

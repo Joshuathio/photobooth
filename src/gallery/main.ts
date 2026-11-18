@@ -7,6 +7,7 @@ import {
   photoUrl,
   type AssetKey,
 } from '../shared/cloudinary';
+import { SHOTS as PHOTO_COUNT } from '../booth/config';
 import { isValidSessionCode, normalizeSessionCode } from '../shared/session-code';
 
 // Must match the cloud name the booth uploads to (set VITE_CLOUDINARY_CLOUD_NAME in .env).
@@ -47,8 +48,6 @@ const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
 let currentCode = '';
 let shareFiles: File[] | null = null;
 
-/** Shots per session (see SHOTS in booth/config). */
-const PHOTO_COUNT = 8;
 type PhotoUrl = (n: number, opts?: { width?: number; download?: boolean }) => string;
 /** Where the single photos come from for the current code, or null when there are none. */
 let photoSrc: PhotoUrl | null = null;
@@ -83,10 +82,6 @@ function loadImage(img: HTMLImageElement, src: string): Promise<void> {
 }
 
 async function showGallery(code: string): Promise<void> {
-  if (!CLOUD_NAME) {
-    showForm('Galeri belum dikonfigurasi (VITE_CLOUDINARY_CLOUD_NAME kosong).');
-    return;
-  }
   currentCode = code;
   codeForm.hidden = true;
   gallery.hidden = true;
@@ -299,7 +294,7 @@ codeForm.addEventListener('submit', (e) => {
   const code = normalizeSessionCode(codeInput.value);
   if (!code) return;
   if (!isValidSessionCode(code)) {
-    showForm('Kode harus 6 karakter (huruf & angka) seperti yang ada di strip.');
+    showForm('Kode harus 6 karakter (huruf & angka) seperti yang tampil di layar tablet.');
     return;
   }
   setCodeInUrl(code);

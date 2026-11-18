@@ -71,13 +71,7 @@ export const FONTS = {
   body: '"Darumadrop One", system-ui, sans-serif',
   chunky: '"Darumadrop One", system-ui, sans-serif',
   script: '"Beth Ellen", cursive',
-  /** Small print in the frame margins (the session code), like the designer's margin text. */
-  text: '"Nunito Variable", "Nunito", system-ui, sans-serif',
 } as const;
-
-/** Session code printed sideways in the left margin of art frames, centred here (below the heart sticker). */
-export const MARGIN_CODE_X = 24;
-export const MARGIN_CODE_Y = 1340;
 
 export interface Deck {
   label: string;
@@ -260,10 +254,10 @@ export type DeckId = keyof typeof DECKS;
 
 /** Session timing beyond the capture loop. */
 export const DECK_TIMEOUT_MS = 60_000; // nobody picks a deck → back to the attract screen
-export const SELECT_TIMEOUT_MS = 45_000; // nobody picks → the first photos are used
+export const SELECT_TIMEOUT_MS = 60_000; // nobody picks → the first photos are used (also ends an unanswered upgrade request)
 export const REVEAL_MS = 3_400; // minimum time the gacha reveal stays on screen
-export const OFFER_MS = 30_000; // book keychain offer after the gacha, then on to the result
-export const RESULT_MS = 45_000; // result + QR screen, then back to attract
+export const OFFER_MS = 60_000; // book info screen: guests tap Next; this only frees the booth if they walk away
+export const RESULT_MS = 90_000; // result + QR screen (the guest's only look at the session code), then back to attract
 
 /** Book keychain upsell: all 8 photos as a mini book on a key ring. */
 export const BOOK_PRICE = '15rb';

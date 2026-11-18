@@ -37,8 +37,6 @@ export interface LastResult {
   code: string;
   frame: FrameId;
   pkg: PrintPackage;
-  /** The book keychain was paid for (its file is in Downloads). */
-  book: boolean;
   sheetUrl: string;
   gifUrl: string;
   link: string | null;
@@ -90,6 +88,8 @@ export class BoothController {
   /** Photos of the last session, so the book file can be made again on request. */
   private lastShots: BookInput<HTMLCanvasElement> | null = null;
   private objectUrls: string[] = [];
+  /** The newest session's code: an older session that finishes late must not take over the result panel. */
+  private newestCode = '';
 
   constructor() {
     this.snapshot = {
@@ -115,8 +115,7 @@ export class BoothController {
         grab: () => this.camera!.grab(this.snapshot.settings.mirror),
         thumb: (shot) => shotThumbnail(shot),
         deliver: (input) => this.deliver(input),
-        deliverBook: (input) => this.deliverBook(input),
-        newCode: generateSessionCode,
+        newCode: () => (this.newestCode = generateSessionCode()),
         random: secureRandom,
         log: (text, level) => this.log(text, level),
       },
@@ -325,7 +324,7 @@ export class BoothController {
     this.session.declineUpgrade();
   }
 
-  /** Builds the book file for the last session again (e.g. the guest buys it later). */
+  /** Builds the book file for the last session again (the guest tells the crew they want it). */
   async redownloadBook(): Promise<void> {
     if (!this.lastShots) return;
     try {
@@ -356,22 +355,16 @@ export class BoothController {
   }
 
   /* ---------- Delivery ---------- */
-  /** Book keychain: the 16-photo landscape layout (8 photos × 2), turned for the printer. */
-  private async deliverBook(input: BookInput<HTMLCanvasElement>): Promise<void> {
-    await this.saveBook(input);
-    const r = this.snapshot.lastResult;
-    if (r && r.code === input.code) this.patch({ lastResult: { ...r, book: true } });
-  }
-
   /** Frame PNG for printing; logs (and falls back to the frame colours) if it's missing. */
   private async loadArt(style: FrameStyle): Promise<void> {
     if (!style.art) return;
     if (!(await ensureFrameArt(style))) this.log(`File frame ${style.art.sheet} tidak bisa dibuka — pakai warna polos`, 'err');
   }
 
+  /** Book keychain: the 16-photo landscape layout (8 photos × 2), turned for the printer. */
   private async saveBook({ code, shots, frame }: BookInput<HTMLCanvasElement>): Promise<void> {
     await Promise.all([ensureFonts(), this.loadArt(frameById(frame))]);
-    const info = { code, eventName: this.snapshot.settings.eventName, date: new Date() };
+    const info = { eventName: this.snapshot.settings.eventName, date: new Date() };
     const blob = await toJpeg(printForBig(buildBigPrint(shots, info, frameById(frame))));
     const name = `buku-${code}.jpg`;
     download(blob, name);
@@ -387,7 +380,7 @@ export class BoothController {
   }: DeliverInput<HTMLCanvasElement>): Promise<DeliverResult> {
     const settings = this.snapshot.settings;
     const style = frameById(frame);
-    const info = { code, eventName: settings.eventName, date: new Date() };
+    const info = { eventName: settings.eventName, date: new Date() };
     await Promise.all([ensureFonts(), this.loadArt(style)]);
 
     // Every guest gets all 8 photos digitally, uncropped.
@@ -409,12 +402,18 @@ export class BoothController {
     const kb = (b: Blob) => `${Math.round(b.size / 1024)}KB`;
     this.log(`Dibuat: sheet ${kb(sheetBlob)} · story ${kb(storyBlob)} · 8 foto ${kb(allBlob)} · gif ${kb(gifBlob)}`);
 
-    this.objectUrls.splice(0).forEach((u) => URL.revokeObjectURL(u));
-    const sheetUrl = this.objectUrl(sheetBlob);
-    const gifUrl = this.objectUrl(gifBlob);
-    this.lastSheet = { blob: sheetBlob, code, pkg };
-    this.lastShots = { code, shots, frame };
-    this.patch({ lastResult: { code, frame, pkg, book: false, sheetUrl, gifUrl, link: null, qr: null } });
+    // A session that finishes after a newer one has started still prints, but must not take
+    // over the "last result" panel or free the newer session's images.
+    let sheetUrl = '';
+    let gifUrl = '';
+    if (code === this.newestCode) {
+      this.objectUrls.splice(0).forEach((u) => URL.revokeObjectURL(u));
+      sheetUrl = this.objectUrl(sheetBlob);
+      gifUrl = this.objectUrl(gifBlob);
+      this.lastSheet = { blob: sheetBlob, code, pkg };
+      this.lastShots = { code, shots, frame };
+      this.patch({ lastResult: { code, frame, pkg, sheetUrl, gifUrl, link: null, qr: null } });
+    }
 
     // The print sheet always lands on this Mac for the printer, on top of any cloud copy.
     // Both sheets are two identical halves, so both print with the same 2x6 cut.
@@ -478,8 +477,7 @@ export class BoothController {
       return { link: null, stripThumb };
     }
     const qr = await QRCode.toDataURL(link, { margin: 1, width: 360 });
-    const prev = this.snapshot.lastResult;
-    this.patch({ lastResult: { code, frame, pkg, book: prev?.code === code && prev.book, sheetUrl, gifUrl, link, qr } });
+    if (code === this.newestCode) this.patch({ lastResult: { code, frame, pkg, sheetUrl, gifUrl, link, qr } });
     return { link, stripThumb };
   }
 

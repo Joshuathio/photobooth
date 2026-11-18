@@ -13,7 +13,7 @@ function mulberry32(seed: number): () => number {
 }
 
 describe('gacha', () => {
-  it('has three sets with equal odds inside each set', () => {
+  it('has two sets with equal odds inside each set', () => {
     expect(FRAME_SETS.map((s) => s.label)).toEqual(['Set A', 'Set B']);
     expect(framesInSet('A').map((f) => f.id)).toEqual(['a1', 'a2', 'a3', 'a4', 'a5']);
     expect(framesInSet('B').map((f) => f.id)).toEqual(['b1', 'b2', 'b3']);
