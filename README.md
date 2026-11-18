@@ -169,8 +169,9 @@ layar tablet. Untuk menambah frame:
    `outline` kalau tulisannya bergaris tepi (seperti frame gingham).
 
 Foto digambar di bawah PNG; kode sesi tidak dicetak di strip.
-Versi besar/buku dan sheet digital 8 foto memakai warna frame dengan tulisan "with love, Dearly". Frame tanpa
-`art` digambar dari warna + pola (`paintFrame` di `src/booth/compose.ts`).
+Versi besar/buku memakai warna frame dengan tulisan "with love, Dearly". Sheet digital 8 foto untuk frame ber-`art`
+berupa dua strip berdampingan seperti cetakannya (foto 1–4 kiri, 5–8 kanan). Frame tanpa `art` digambar dari warna +
+pola (`paintFrame` di `src/booth/compose.ts`) dan sheet 8 fotonya berupa grid 2 × 4.
 
 ## Catatan keamanan
 

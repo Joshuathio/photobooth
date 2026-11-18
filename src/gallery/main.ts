@@ -35,11 +35,10 @@ const picksGrid = $('picksGrid');
 const pickAllBtn = $<HTMLButtonElement>('pickAllBtn');
 const savePicksBtn = $<HTMLButtonElement>('savePicksBtn');
 const iosHint = $('iosHint');
-const downloadLinks: Record<AssetKey, HTMLAnchorElement> = {
+const downloadLinks: Record<Exclude<AssetKey, 'all'>, HTMLAnchorElement> = {
   sheet: $<HTMLAnchorElement>('dlSheet'),
   story: $<HTMLAnchorElement>('dlStory'),
   gif: $<HTMLAnchorElement>('dlGif'),
-  all: $<HTMLAnchorElement>('dlAll'),
 };
 
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
@@ -101,16 +100,14 @@ async function showGallery(code: string): Promise<void> {
   gifImg.src = deliveryUrl(CLOUD_NAME, code, 'gif');
   // Sessions from before the 8-photo update have no "all" image: just hide that part.
   allWrap.hidden = true;
-  downloadLinks.all.hidden = true;
   loadImage(allImg, deliveryUrl(CLOUD_NAME, code, 'all')).then(
     () => {
       if (currentCode !== code) return;
       allWrap.hidden = false;
-      downloadLinks.all.hidden = false;
     },
     () => {},
   );
-  for (const [asset, a] of Object.entries(downloadLinks) as [AssetKey, HTMLAnchorElement][]) {
+  for (const [asset, a] of Object.entries(downloadLinks) as [Exclude<AssetKey, 'all'>, HTMLAnchorElement][]) {
     a.href = attachmentUrl(CLOUD_NAME, code, asset);
   }
   codeLabel.textContent = code;

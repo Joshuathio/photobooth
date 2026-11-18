@@ -28,6 +28,7 @@ import {
   SHEET_W,
   STORY_H,
   STORY_W,
+  STRIP_SHOTS,
   STRIP_W,
 } from './config';
 import type { FrameStyle } from './gacha';
@@ -335,8 +336,10 @@ export function printForBig(big: HTMLCanvasElement): HTMLCanvasElement {
 }
 
 /**
- * Digital sheet with all 8 shots uncropped (2 columns × 4 rows of 3:2), for the
- * gallery. Every guest gets this, whichever print they bought.
+ * Digital sheet with all 8 shots, for the gallery. Every guest gets this,
+ * whichever print they bought. Frames with artwork look like the print: two
+ * strips side by side, shots 1–4 on the left and 5–8 on the right. Other frames
+ * get a plain grid of 2 columns × 4 rows (3:2, uncropped).
  */
 export function buildAllSheet(
   shots: HTMLCanvasElement[],
@@ -344,6 +347,11 @@ export function buildAllSheet(
   frame: FrameStyle,
 ): HTMLCanvasElement {
   const [c, ctx] = canvas(SHEET_W, SHEET_H);
+  if (artFor(frame)) {
+    drawStrip(ctx, 0, shots.slice(0, STRIP_SHOTS), info, frame);
+    drawStrip(ctx, STRIP_W, shots.slice(STRIP_SHOTS, STRIP_SHOTS * 2), info, frame);
+    return c;
+  }
   paintFrame(ctx, frame, 0, 0, SHEET_W, SHEET_H);
   shots.forEach((shot, i) => {
     const x = ALL_MARGIN + (i % ALL_COLS) * (ALL_CELL_W + ALL_GAP);
@@ -356,23 +364,7 @@ export function buildAllSheet(
   const left = SHEET_W / 4;
   const right = (SHEET_W * 3) / 4;
   const date = info.date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-  const colW = SHEET_W / 2 - 2 * MARGIN_X;
   ctx.textAlign = 'center';
-  if (frame.art) {
-    letter(ctx, 'with love,', left - 40, ALL_FOOTER_Y + 78, `400 44px ${FONTS.script}`, frame.ink, frame.outline, colW);
-    letter(ctx, 'Dearly', left + 30, ALL_FOOTER_Y + 156, `400 76px ${FONTS.script}`, frame.ink, frame.outline, colW);
-    const small: [string, string, number][] = [
-      [date, `400 26px ${FONTS.body}`, 84],
-      [info.eventName, `400 22px ${FONTS.body}`, 120],
-    ];
-    ctx.fillStyle = solidInk(frame);
-    for (const [text, font, dy] of small) {
-      if (!text) continue;
-      ctx.font = font;
-      ctx.fillText(text, right, ALL_FOOTER_Y + dy, colW);
-    }
-    return c;
-  }
   const lines: [string, string, string, number, number][] = [
     ['Dearly', frame.ink, `400 70px ${FONTS.script}`, left, 100],
     ['Photobooth', frame.accent, `400 36px ${FONTS.chunky}`, left, 166],
