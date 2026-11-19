@@ -34,8 +34,8 @@ export const BIG_CELL_H = 300;
 export const BIG_FOOTER_X = BIG_COLS * BIG_CELL_W; // 1656
 
 /**
- * Digital "all photos" sheet (every guest gets it): 8 landscape photos,
- * 2 columns × 4 rows, nothing cropped to portrait.
+ * Legacy digital "all photos" grid: 8 landscape photos, 2 columns × 4 rows. Not made any more,
+ * but old sessions still have it, so the gallery cuts their photos out with these numbers.
  */
 export const ALL_COLS = 2;
 export const ALL_MARGIN = 36;

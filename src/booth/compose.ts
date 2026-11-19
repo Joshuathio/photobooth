@@ -1,11 +1,5 @@
 import { applyPalette, GIFEncoder, quantize } from 'gifenc';
 import {
-  ALL_CELL_H,
-  ALL_CELL_W,
-  ALL_COLS,
-  ALL_FOOTER_Y,
-  ALL_GAP,
-  ALL_MARGIN,
   BIG_CELL_H,
   BIG_CELL_W,
   BIG_COLS,
@@ -28,7 +22,6 @@ import {
   SHEET_W,
   STORY_H,
   STORY_W,
-  STRIP_SHOTS,
   STRIP_W,
 } from './config';
 import type { FrameStyle } from './gacha';
@@ -332,52 +325,6 @@ export function printForBig(big: HTMLCanvasElement): HTMLCanvasElement {
   ctx.translate(SHEET_W, 0);
   ctx.rotate(Math.PI / 2);
   ctx.drawImage(big, 0, 0);
-  return c;
-}
-
-/**
- * Digital sheet with all 8 shots, for the gallery. Every guest gets this,
- * whichever print they bought. Frames with artwork look like the print: two
- * strips side by side, shots 1–4 on the left and 5–8 on the right. Other frames
- * get a plain grid of 2 columns × 4 rows (3:2, uncropped).
- */
-export function buildAllSheet(
-  shots: HTMLCanvasElement[],
-  info: StripInfo,
-  frame: FrameStyle,
-): HTMLCanvasElement {
-  const [c, ctx] = canvas(SHEET_W, SHEET_H);
-  if (artFor(frame)) {
-    drawStrip(ctx, 0, shots.slice(0, STRIP_SHOTS), info, frame);
-    drawStrip(ctx, STRIP_W, shots.slice(STRIP_SHOTS, STRIP_SHOTS * 2), info, frame);
-    return c;
-  }
-  paintFrame(ctx, frame, 0, 0, SHEET_W, SHEET_H);
-  shots.forEach((shot, i) => {
-    const x = ALL_MARGIN + (i % ALL_COLS) * (ALL_CELL_W + ALL_GAP);
-    const y = ALL_MARGIN + Math.floor(i / ALL_COLS) * (ALL_CELL_H + ALL_GAP);
-    ctx.fillStyle = frame.border;
-    ctx.fillRect(x - 2, y - 2, ALL_CELL_W + 4, ALL_CELL_H + 4);
-    drawCover(ctx, shot, x, y, ALL_CELL_W, ALL_CELL_H);
-  });
-
-  const left = SHEET_W / 4;
-  const right = (SHEET_W * 3) / 4;
-  const date = info.date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-  ctx.textAlign = 'center';
-  const lines: [string, string, string, number, number][] = [
-    ['Dearly', frame.ink, `400 70px ${FONTS.script}`, left, 100],
-    ['Photobooth', frame.accent, `400 36px ${FONTS.chunky}`, left, 166],
-    [date, frame.dim, `400 26px ${FONTS.body}`, right, 84],
-    [info.eventName, frame.dim, `400 22px ${FONTS.body}`, right, 120],
-  ];
-  ctx.textAlign = 'center';
-  for (const [text, color, font, x, dy] of lines) {
-    if (!text) continue;
-    ctx.fillStyle = color;
-    ctx.font = font;
-    ctx.fillText(text, x, ALL_FOOTER_Y + dy, SHEET_W / 2 - 2 * MARGIN_X);
-  }
   return c;
 }
 

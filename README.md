@@ -44,13 +44,13 @@ file statis di mana saja.
 - Lembar cetak 1200×1800 (300dpi). Strip: 2 strip identik berisi 4 foto pilihan, posisi foto sama dengan template
   frame (lubang 520×340 di x40, y43, jarak 37). Versi besar: 16 foto landscape 414×300 (3,5 × 2,55 cm), dua bagian identik
   berisi 8 foto (4 kolom × 2 baris) dengan logo di samping; di file cetak isinya diputar 90° supaya potongan 2x6
-  printer jatuh di antara dua bagian. Versi digital 8 foto: grid landscape 2×4.
+  printer jatuh di antara dua bagian. File digital "semua foto" (`semua-KODE.jpg`) memakai layout yang sama dengan versi besar (16 foto, 8 foto × 2, tidak diputar), jadi tamu juga bisa mencetak dan memotongnya sendiri untuk buku.
   Story 1080×1920, GIF 8 frame 480×320, warna sesuai frame gacha
 - Kode sesi 6 karakter tampil di layar tablet, tidak dicetak di strip (tanpa huruf yang mirip seperti 0/O dan 1/I/L)
 - Upload ke Cloudinary; kalau cloud belum diatur atau upload gagal, file di-download lokal
 - Lembar cetak selalu di-download ke Mac untuk dicetak (`sheet-KODE.jpg` / `sheet-KODE-besar.jpg`). Keduanya berisi
   2 bagian identik, jadi dicetak dengan setelan potong 2x6 yang sama
-- Semua tamu dapat versi digital **8 foto** (`booth/KODE/all.jpg`) di galeri, apa pun paketnya
+- Semua tamu dapat versi digital **semua foto** (layout buku 16 foto, `booth/KODE/all.jpg`) di galeri, apa pun paketnya
 
 **Galeri (tamu)** — `gallery.html`
 - Buka lewat QR (`?s=KODE`) atau ketik kode secara manual
@@ -169,9 +169,7 @@ layar tablet. Untuk menambah frame:
    `outline` kalau tulisannya bergaris tepi (seperti frame gingham).
 
 Foto digambar di bawah PNG; kode sesi tidak dicetak di strip.
-Versi besar/buku memakai warna frame dengan tulisan "with love, Dearly". Sheet digital 8 foto untuk frame ber-`art`
-berupa dua strip berdampingan seperti cetakannya (foto 1–4 kiri, 5–8 kanan). Frame tanpa `art` digambar dari warna +
-pola (`paintFrame` di `src/booth/compose.ts`) dan sheet 8 fotonya berupa grid 2 × 4.
+Versi besar/buku memakai warna frame dengan tulisan "with love, Dearly". File digital "semua foto" memakai layout versi besar dengan warna frame.
 
 ## Catatan keamanan
 

@@ -5,7 +5,7 @@ export const ASSETS = {
   sheet: { name: 'sheet', ext: 'jpg' },
   story: { name: 'story', ext: 'jpg' },
   gif: { name: 'anim', ext: 'gif' },
-  /** All 8 photos on one sheet — every guest gets this digitally. */
+  /** All 8 photos in the 16-cell book layout — every guest gets this digitally. */
   all: { name: 'all', ext: 'jpg' },
 } as const;
 
@@ -50,7 +50,7 @@ export function photoUrl(
   return `https://res.cloudinary.com/${cloud}/image/upload/${t}${photoPublicId(code, n)}.jpg`;
 }
 
-/** Where shot `n` (from 1) sits on the 8-photo sheet — see buildAllSheet. */
+/** Where shot `n` (from 1) sits on the 8-photo sheet — legacy grid of old sessions (see ALL_* in config). */
 export function allSheetCell(n: number): { x: number; y: number; w: number; h: number } {
   const i = n - 1;
   return {
