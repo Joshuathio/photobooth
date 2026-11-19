@@ -224,9 +224,7 @@ function StatusBar({ s, ctl, onOpen }: PanelProps & { onOpen(d: Drawer): void })
   const errors = s.log.filter((e) => e.level === 'err').length;
   return (
     <footer className="bar">
-      <span className="bar__brand sticker sticker--script" aria-label="Dearly">
-        Dearly
-      </span>
+      <img className="bar__brand" src="/dearly-logo.png" alt="Dearly Photobooth" />
       <div className="bar__status">
         <span className={`conn ${s.tablets > 0 ? 'is-on' : ''}`}>
           <i />

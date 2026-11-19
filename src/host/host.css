@@ -274,9 +274,10 @@ body {
   box-shadow: 0 8px 20px rgba(34, 52, 92, 0.16);
 }
 .bar__brand {
-  font-size: 34px;
-  line-height: 1;
-  margin: -6px 2px -4px 0;
+  display: block;
+  height: 46px;
+  width: auto;
+  margin: -8px 4px -8px 0;
 }
 .bar__status {
   display: flex;

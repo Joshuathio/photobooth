@@ -108,14 +108,9 @@ function MiniStrip({ frame, className = '' }: { frame: FrameStyle; className?: s
   );
 }
 
-/** "Dearly" over "Photobooth", as on the title slide. */
+/** The Dearly Photobooth lockup. */
 function Logo({ className = '' }: { className?: string }) {
-  return (
-    <div className={`gs-logo ${className}`} role="img" aria-label="Dearly Photobooth">
-      <span className="gs-logo__script sticker sticker--script">Dearly</span>
-      <span className="gs-logo__word sticker">Photobooth</span>
-    </div>
-  );
+  return <img className={`gs-logo ${className}`} src="/dearly-logo.png" alt="Dearly Photobooth" draggable={false} />;
 }
 
 /* ---------- Attract ---------- */

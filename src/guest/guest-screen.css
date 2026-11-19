@@ -168,21 +168,9 @@
   text-align: center;
 }
 .gs-logo {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.gs-logo__script {
-  /* Beth Ellen runs tall with a deep "y" tail; keep it clear of the word below. */
-  font-size: 124px;
-  line-height: 1;
-  margin: 0 0 22px;
-  position: relative;
-  z-index: 1;
-}
-.gs-logo__word {
-  font-size: 98px;
-  margin-top: -4px;
+  display: block;
+  width: 540px;
+  height: auto;
 }
 .gs-attract__lede {
   margin-top: 36px;
