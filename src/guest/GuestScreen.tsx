@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { BOOK_PRICE_TAG, DECKS, SHOTS, type Deck, type DeckId } from '../booth/config';
+import { BOOK_PRICE_TAG, DECKS, MAX_RETAKES, SHOTS, type Deck, type DeckId } from '../booth/config';
 import { FRAME_SETS, frameById, framesInSet, setById, type FrameStyle, type SetId } from '../booth/gacha';
 import type { GuestIntent } from '../shared/link-protocol';
 import type { GuestView } from '../shared/view';
@@ -74,10 +74,11 @@ const CLOCK_LABELS: Partial<Record<GuestView['phase'], string>> = {
 function Clock({ view }: { view: GuestView }) {
   const left = useCountdown(view.timerMs, view.timerId);
   if (left === null) return null;
+  const label = view.compare ? 'Using the new one in' : CLOCK_LABELS[view.phase];
   const time = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
   return (
     <span className="gs-clock" role="timer" aria-label={`${left} seconds left`}>
-      {CLOCK_LABELS[view.phase]} <b>{time}</b>
+      {label} <b>{time}</b>
     </span>
   );
 }
@@ -409,16 +410,38 @@ function Capture({ view, preview }: { view: GuestView; preview: ReactNode }) {
         {flash !== null && <div className="gs-flash" key={flash} />}
       </div>
       {view.prompt && (
-        <div className="gs-prompt" key={view.shot}>
+        <div className="gs-prompt" key={`${view.retakeOf ?? 'shot'}-${view.shot}`}>
           <span className="gs-prompt__step sticky">
-            Photo {Math.min(view.shot + 1, view.totalShots)} of {view.totalShots}
+            {view.retakeOf !== null ? (
+              <>
+                Retake photo {view.retakeOf + 1} <span className="gs-prompt__same">· same prompt</span>
+              </>
+            ) : (
+              <>
+                Photo {Math.min(view.shot + 1, view.totalShots)} of {view.totalShots}
+              </>
+            )}
           </span>
           <p className="tag">{view.prompt}</p>
         </div>
       )}
       <div className="gs-progress paper" aria-label={`Photo ${Math.min(view.shot + 1, view.totalShots)} of ${view.totalShots}`}>
         {Array.from({ length: view.totalShots }, (_, i) => (
-          <Star key={i} size={24} className={i < view.shot ? 'is-done' : i === view.shot ? 'is-now' : ''} />
+          <Star
+            key={i}
+            size={24}
+            className={
+              view.retakeOf !== null
+                ? i === view.retakeOf
+                  ? 'is-now'
+                  : 'is-done'
+                : i < view.shot
+                  ? 'is-done'
+                  : i === view.shot
+                    ? 'is-now'
+                    : ''
+            }
+          />
         ))}
       </div>
     </div>
@@ -426,24 +449,64 @@ function Capture({ view, preview }: { view: GuestView; preview: ReactNode }) {
 }
 
 /* ---------- Pick photos ---------- */
+/** Circular arrow for the retake buttons and counter. */
+function RetakeIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
+      <path d="M19 12a7 7 0 1 1-2.05-4.95" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" />
+      <path
+        d="M19.5 3.5v4.8h-4.8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** Sticky note with the retakes left, one icon per retake. */
+function RetakeBudget({ left }: { left: number }) {
+  const slots = Math.max(MAX_RETAKES, left);
+  return (
+    <div className={`gs-retakes sticky ${left === 0 ? 'is-out' : ''}`} aria-live="polite">
+      <b>{left === 0 ? 'No retakes left' : `Retakes left: ${left}`}</b>
+      <span className="gs-retakes__dots" aria-hidden="true">
+        {Array.from({ length: slots }, (_, i) => (
+          <i key={i} className={i < left ? 'is-left' : ''}>
+            <RetakeIcon size={16} />
+          </i>
+        ))}
+      </span>
+    </div>
+  );
+}
+
 function Select({ view, onIntent }: { view: GuestView; onIntent(intent: GuestIntent): void }) {
   const count = view.selected.length;
   const full = count >= view.pickCount;
   const tiles = Array.from({ length: view.totalShots }, (_, i) => i);
+  const canRetake = view.retakesLeft > 0 && !view.upgradePending && !view.compare;
   return (
     <div className="gs-sheet paper gs-select">
-      <Star size={40} className="gs-select__star" />
       <h1 className="gs-title sticker">Pick your {view.pickCount} favorite photos</h1>
-      <p className="gs-select__sub">Tap a photo to add it to your strip.</p>
+      <p className="gs-select__sub">
+        {view.retakesLeft > 0
+          ? 'Tap a photo to add it to your strip. Not happy with one? Tap Retake.'
+          : 'Tap a photo to add it to your strip.'}
+      </p>
+      <RetakeBudget left={view.retakesLeft} />
 
       <ul className="gs-select__grid">
         {tiles.map((i) => {
           const on = view.selected.includes(i);
+          const fresh = view.freshShot === i;
           return (
-            <li key={i}>
+            <li key={i} className="gs-select__cell">
               <button
                 type="button"
-                className={`gs-tile ${on ? 'is-on' : ''} ${full && !on ? 'is-muted' : ''}`}
+                className={`gs-tile ${on ? 'is-on' : ''} ${full && !on ? 'is-muted' : ''} ${fresh ? 'is-fresh' : ''}`}
                 aria-pressed={on}
                 aria-label={`Photo ${i + 1}`}
                 onClick={() => onIntent({ type: 'toggle', index: i })}
@@ -461,7 +524,19 @@ function Select({ view, onIntent }: { view: GuestView; onIntent(intent: GuestInt
                     </svg>
                   </span>
                 )}
+                {fresh && <span className="gs-tile__new tag">New!</span>}
               </button>
+              {/* A sibling of the tile, not inside it: a button can't contain another button. */}
+              {canRetake && (
+                <button
+                  type="button"
+                  className="gs-tile__retake"
+                  aria-label={`Retake photo ${i + 1}`}
+                  onClick={() => onIntent({ type: 'retake', index: i })}
+                >
+                  <RetakeIcon /> Retake
+                </button>
+              )}
             </li>
           );
         })}
@@ -482,6 +557,30 @@ function Select({ view, onIntent }: { view: GuestView; onIntent(intent: GuestInt
           </button>
         </div>
       </div>
+
+      {view.compare && (
+        <div className="gs-pending">
+          <div className="gs-pending__card paper gs-compare">
+            <Star size={44} className="gs-pending__star" />
+            <h2 className="sticker">Which one?</h2>
+            <div className="gs-compare__pair">
+              <button type="button" className="gs-compare__pick" onClick={() => onIntent({ type: 'keepRetake', use: 'old' })}>
+                <img src={view.compare.old} alt={`Old photo ${view.compare.index + 1}`} />
+                <span className="gs-compare__label">Keep the old one</span>
+              </button>
+              <button
+                type="button"
+                className="gs-compare__pick is-new"
+                onClick={() => onIntent({ type: 'keepRetake', use: 'new' })}
+              >
+                <img src={view.compare.fresh} alt={`New photo ${view.compare.index + 1}`} />
+                <span className="gs-compare__label tag">Use the new one</span>
+              </button>
+            </div>
+            <p className="gs-compare__hint">Tap one. If you don't pick, we'll use the new one.</p>
+          </div>
+        </div>
+      )}
 
       {view.upgradePending && (
         <div className="gs-pending">

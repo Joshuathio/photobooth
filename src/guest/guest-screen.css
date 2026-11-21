@@ -881,11 +881,6 @@
   display: flex;
   flex-direction: column;
 }
-.gs-select__star {
-  right: -16px;
-  top: -14px;
-  transform: rotate(14deg);
-}
 .gs-select .gs-title {
   font-size: 64px;
 }
@@ -1048,6 +1043,138 @@
   border-radius: 999px;
   font-size: 19px;
   font-weight: 800;
+}
+
+/* ---------- Retake ---------- */
+.gs-select__cell {
+  position: relative;
+}
+/* Sits on the tile's corner but is its own button, so it never toggles the selection. */
+.gs .gs-tile__retake {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px 6px 9px;
+  border-radius: 999px;
+  background: rgba(239, 232, 223, 0.95);
+  color: var(--red);
+  font-family: var(--font-chunky);
+  font-size: 16px;
+  box-shadow:
+    0 0 0 2px var(--red),
+    0 3px 6px rgba(58, 42, 38, 0.25);
+}
+.gs .gs-tile__retake:active {
+  transform: scale(0.95);
+}
+.gs-retakes {
+  position: absolute;
+  right: 30px;
+  top: 24px;
+  padding: 8px 14px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transform: rotate(3deg);
+}
+.gs-retakes b {
+  font-size: 17px;
+  font-weight: 400;
+}
+.gs-retakes.is-out {
+  opacity: 0.75;
+}
+.gs-retakes__dots {
+  display: flex;
+  gap: 6px;
+}
+.gs-retakes__dots i {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--tan-deep);
+  box-shadow: inset 0 0 0 2px var(--tan-deep);
+}
+.gs-retakes__dots i.is-left {
+  background: var(--red);
+  color: var(--cream);
+  box-shadow: none;
+}
+.gs-tile.is-fresh {
+  box-shadow:
+    0 0 0 6px var(--sticky),
+    0 0 0 9px var(--red),
+    0 10px 20px rgba(158, 42, 43, 0.3);
+}
+.gs-tile.is-fresh.is-on {
+  box-shadow:
+    0 0 0 6px var(--red),
+    0 0 0 11px var(--sticky),
+    0 10px 20px rgba(158, 42, 43, 0.3);
+}
+.gs-tile__new {
+  position: absolute;
+  left: 50%;
+  top: 10px;
+  transform: translateX(-50%) rotate(-4deg);
+  font-size: 18px;
+  padding: 3px 12px 5px;
+}
+.gs-prompt__same {
+  opacity: 0.7;
+}
+.gs-pending__card.gs-compare {
+  width: 780px;
+}
+.gs-compare__pair {
+  display: flex;
+  justify-content: center;
+  gap: 26px;
+  margin: 22px 0 14px;
+}
+.gs-compare__pick {
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.gs-compare__pick img {
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 6px;
+  box-shadow:
+    0 0 0 4px var(--cream),
+    0 6px 14px rgba(58, 42, 38, 0.2);
+}
+.gs-compare__pick.is-new img {
+  box-shadow:
+    0 0 0 6px var(--red),
+    0 10px 20px rgba(158, 42, 43, 0.3);
+}
+.gs-compare__pick:active {
+  transform: scale(0.98);
+}
+.gs-compare__label {
+  font-family: var(--font-chunky);
+  font-size: 21px;
+}
+.gs-compare__pick:not(.is-new) .gs-compare__label {
+  padding: 4px 14px;
+  border: 2.5px solid var(--red);
+  border-radius: 999px;
+}
+.gs-pending__card p.gs-compare__hint {
+  margin: 6px 0 0;
+  font-size: 17px;
 }
 
 /* ---------- Gacha reveal ---------- */

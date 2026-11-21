@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import { OFFER_MS, RESULT_MS, SELECT_TIMEOUT_MS, SHOTS, STRIP_SHOTS } from '../src/booth/config';
+import {
+  MAX_RETAKES,
+  OFFER_MS,
+  RESULT_MS,
+  RETAKE_CHOOSE_MS,
+  SELECT_TIMEOUT_MS,
+  SHOTS,
+  STRIP_SHOTS,
+} from '../src/booth/config';
 import { BoothSession, type SessionDeps } from '../src/booth/session';
 import { Cancelled } from '../src/booth/timing';
 import type { GuestView, Phase } from '../src/shared/view';
@@ -328,5 +336,139 @@ describe('BoothSession', () => {
     session.reset();
     session.nextFromOffer();
     expect(session.view.phase).toBe('idle');
+  });
+});
+
+/* ---------- Retake ---------- */
+
+/** Like setup(), but the old-or-new choice only times out when `autoChoose` is set. */
+function retakeSetup(autoChoose = false, overrides: Partial<SessionDeps<number>> = {}) {
+  const never = () => new Promise<void>(() => {});
+  return setup({
+    sleep: (ms, signal) =>
+      ms === RETAKE_CHOOSE_MS ? (autoChoose ? fastSleep(ms, signal) : never()) : ms >= 30_000 ? never() : fastSleep(ms, signal),
+    ...overrides,
+  });
+}
+
+/** The prompt shown for each of the 8 shots. */
+function promptsByShot(views: GuestView[]): string[] {
+  const out: string[] = [];
+  for (const v of views) if (v.phase === 'capturing' && v.retakeOf === null && v.prompt) out[v.shot] = v.prompt;
+  return out;
+}
+
+describe('BoothSession retake', () => {
+  it('retakes a photo with the same prompt, then uses the new one when picked', async () => {
+    const { deps, session, views } = retakeSetup();
+    await toSelect(session);
+    const prompts = promptsByShot(views);
+    for (const i of [0, 4]) session.toggle(i);
+    expect(session.view.retakesLeft).toBe(MAX_RETAKES);
+
+    const before = views.length;
+    await session.retake(4);
+    const during = views.slice(before).filter((v) => v.phase === 'capturing');
+    expect(during.length).toBeGreaterThan(0);
+    expect(during.every((v) => v.retakeOf === 4 && v.prompt === prompts[4])).toBe(true);
+    expect(during.filter((v) => v.count !== null).map((v) => v.count)).toEqual([3, 2, 1]);
+
+    expect(session.view).toMatchObject({
+      phase: 'select',
+      retakeOf: null,
+      retakesLeft: MAX_RETAKES - 1,
+      compare: { index: 4, old: 'thumb-5', fresh: 'thumb-9' },
+      selected: [0, 4],
+    });
+    session.handleIntent({ type: 'toggle', index: 2 }, 'BESTIE'); // blocked while choosing
+    expect(session.view.selected).toEqual([0, 4]);
+
+    session.handleIntent({ type: 'keepRetake', use: 'new' }, 'BESTIE');
+    expect(session.view).toMatchObject({ compare: null, freshShot: 4, selected: [0, 4] });
+    expect(session.view.thumbs[4]).toBe('thumb-9');
+
+    for (const i of [1, 2]) session.toggle(i);
+    await session.confirm();
+    expect(deps.deliver).toHaveBeenCalledWith(
+      expect.objectContaining({ shots: [1, 2, 3, 4, 9, 6, 7, 8], chosen: [0, 1, 2, 4] }),
+    );
+  });
+
+  it('keeps the old photo when the guest prefers it (the retake is still used)', async () => {
+    const { deps, session } = retakeSetup();
+    await toSelect(session);
+    await session.retake(2);
+    session.keepRetake('old');
+    expect(session.view).toMatchObject({ compare: null, freshShot: null, retakesLeft: MAX_RETAKES - 1 });
+    expect(session.view.thumbs[2]).toBe('thumb-3');
+    for (const i of [0, 1, 2, 3]) session.toggle(i);
+    await session.confirm();
+    expect(deps.deliver).toHaveBeenCalledWith(expect.objectContaining({ shots: [1, 2, 3, 4, 5, 6, 7, 8] }));
+  });
+
+  it('uses the new photo when nobody picks in time', async () => {
+    const { session } = retakeSetup(true);
+    await toSelect(session);
+    await session.retake(0);
+    await vi.waitFor(() => expect(session.view.compare).toBeNull());
+    expect(session.view).toMatchObject({ freshShot: 0 });
+    expect(session.view.thumbs[0]).toBe('thumb-9');
+  });
+
+  it(`allows ${MAX_RETAKES} retakes, plus any the operator adds`, async () => {
+    const { deps, session } = retakeSetup();
+    await toSelect(session);
+    for (let n = 0; n < MAX_RETAKES; n++) {
+      await session.retake(n);
+      session.keepRetake('new');
+    }
+    expect(session.view.retakesLeft).toBe(0);
+    await session.retake(5);
+    expect(session.view.compare).toBeNull();
+    expect(deps.grab).toHaveBeenCalledTimes(SHOTS + MAX_RETAKES);
+
+    session.grantRetake();
+    expect(session.view.retakesLeft).toBe(1);
+    await session.retake(5);
+    expect(session.view.compare?.index).toBe(5);
+  });
+
+  it('ignores retakes outside the select screen, while upgrading, or for bad indexes', async () => {
+    const { deps, session } = retakeSetup();
+    await session.retake(0);
+    session.grantRetake();
+    expect(session.view).toMatchObject({ phase: 'idle', retakesLeft: 0 });
+    await toSelect(session);
+    await session.retake(-1);
+    await session.retake(SHOTS);
+    await session.retake(1.5);
+    session.requestUpgrade();
+    await session.retake(0);
+    expect(deps.grab).toHaveBeenCalledTimes(SHOTS);
+    expect(session.view.retakesLeft).toBe(MAX_RETAKES);
+  });
+
+  it('gives the retake back if the camera fails', async () => {
+    let calls = 0;
+    const { session } = retakeSetup(false, {
+      grab: vi.fn(() => {
+        if (++calls > SHOTS) throw new Error('camera unplugged');
+        return calls;
+      }),
+    });
+    await toSelect(session);
+    await session.retake(3);
+    expect(session.view).toMatchObject({ phase: 'select', retakesLeft: MAX_RETAKES, compare: null, retakeOf: null });
+  });
+
+  it('a reset during a retake drops the session', async () => {
+    const { deps, session } = retakeSetup();
+    await toSelect(session);
+    const pending = session.retake(1);
+    session.reset();
+    await pending;
+    session.keepRetake('new');
+    expect(session.view.phase).toBe('idle');
+    expect(deps.deliver).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,4 @@
-import { DECKS, OFFER_MS, RESULT_MS, SELECT_TIMEOUT_MS, SHOTS, STRIP_SHOTS, type DeckId } from '../booth/config';
+import { DECKS, MAX_RETAKES, OFFER_MS, RESULT_MS, SELECT_TIMEOUT_MS, SHOTS, STRIP_SHOTS, type DeckId } from '../booth/config';
 import type { FrameId, SetId } from '../booth/gacha';
 
 /**
@@ -44,6 +44,14 @@ export interface GuestView {
   upgradePending: boolean;
   /** Bumps each time the book offer opens, so the offer screen starts fresh. */
   offerId: number;
+  /** Retakes the guest still has this session. */
+  retakesLeft: number;
+  /** While capturing: the shot being retaken, or null during the normal 8 shots. */
+  retakeOf: number | null;
+  /** A retake waiting for the guest to keep the old or the new photo (thumbnail data URLs). */
+  compare: { index: number; old: string; fresh: string } | null;
+  /** The shot just replaced by a retake, highlighted on the select screen. */
+  freshShot: number | null;
   /** Length of the countdown shown on this screen, or null when there is none. */
   timerMs: number | null;
   /** Bumps each time that countdown restarts. */
@@ -73,6 +81,10 @@ export const IDLE_VIEW: GuestView = {
   pkg: 'standard',
   upgradePending: false,
   offerId: 0,
+  retakesLeft: 0,
+  retakeOf: null,
+  compare: null,
+  freshShot: null,
   timerMs: null,
   timerId: 0,
   preview: false,
@@ -105,6 +117,7 @@ export function sampleView(phase: Phase): GuestView {
     code: phase === 'offer' || phase === 'result' ? 'K7XP2Q' : null,
     selected: phase === 'select' ? [0, 2, 5] : phase === 'offer' ? [0, 2, 5, 7] : [],
     offerId: phase === 'offer' ? Date.now() : 0,
+    retakesLeft: phase === 'select' ? MAX_RETAKES : 0,
     timerMs: phase === 'select' ? SELECT_TIMEOUT_MS : phase === 'offer' ? OFFER_MS : phase === 'result' ? RESULT_MS : null,
     timerId: phase === 'offer' ? Date.now() : 0,
     link: phase === 'result' ? 'https://example.com/gallery.html?s=K7XP2Q' : null,

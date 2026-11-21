@@ -255,6 +255,10 @@ export type DeckId = keyof typeof DECKS;
 /** Session timing beyond the capture loop. */
 export const DECK_TIMEOUT_MS = 60_000; // nobody picks a deck → back to the attract screen
 export const SELECT_TIMEOUT_MS = 60_000; // nobody picks → the first photos are used (also ends an unanswered upgrade request)
+/** Retakes per session from the select screen, each with the shot's own prompt. The operator can add more. */
+export const MAX_RETAKES = 3;
+/** After a retake the guest picks the old or the new photo; nobody taps → the new one is kept. */
+export const RETAKE_CHOOSE_MS = 10_000;
 export const REVEAL_MS = 3_400; // minimum time the gacha reveal stays on screen
 export const OFFER_MS = 60_000; // book info screen: guests tap Next; this only frees the booth if they walk away
 export const RESULT_MS = 90_000; // result + QR screen (the guest's only look at the session code), then back to attract

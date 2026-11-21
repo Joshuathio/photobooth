@@ -20,6 +20,10 @@ export type GuestIntent =
   | { type: 'cancel' }
   /** Pick or unpick a photo on the selection screen. */
   | { type: 'toggle'; index: number }
+  /** Retake one photo (same prompt). Uses one of the session's retakes. */
+  | { type: 'retake'; index: number }
+  /** After a retake: keep the old photo or use the new one. */
+  | { type: 'keepRetake'; use: 'old' | 'new' }
   /** Done picking: print the strip. */
   | { type: 'confirm' }
   /** Wants the big print with all photos (operator confirms payment). */

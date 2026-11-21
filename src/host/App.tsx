@@ -25,11 +25,13 @@ function phaseText(v: GuestView): string {
     case 'deck':
       return `Tamu sedang pilih gaya${v.set ? ` · ${setById(v.set).label}` : ''}`;
     case 'capturing':
-      return `Foto ${Math.min(v.shot + 1, v.totalShots)}/${v.totalShots}${v.deck ? ` · ${DECKS[v.deck].label}` : ''}`;
+      return v.retakeOf !== null
+        ? `Ulang foto ${v.retakeOf + 1} · sisa ulang ${v.retakesLeft}`
+        : `Foto ${Math.min(v.shot + 1, v.totalShots)}/${v.totalShots}${v.deck ? ` · ${DECKS[v.deck].label}` : ''}`;
     case 'select':
-      return v.upgradePending
-        ? 'Tamu minta versi besar — konfirmasi bayar'
-        : `Tamu memilih foto (${v.selected.length}/${v.pickCount})`;
+      if (v.upgradePending) return 'Tamu minta versi besar — konfirmasi bayar';
+      if (v.compare) return `Tamu pilih foto ${v.compare.index + 1} lama atau baru`;
+      return `Tamu memilih foto (${v.selected.length}/${v.pickCount}) · sisa ulang ${v.retakesLeft}`;
     case 'reveal':
       return v.busy ? 'Gacha + menyiapkan foto…' : 'Gacha';
     case 'offer':
@@ -246,6 +248,16 @@ function StatusBar({ s, ctl, onOpen }: PanelProps & { onOpen(d: Drawer): void })
           </span>
         )}
       </div>
+      {(s.live.phase === 'select' || s.live.phase === 'capturing') && !s.designPhase && (
+        <button
+          type="button"
+          className="btn"
+          title="Kasih tamu 1 kesempatan ulang foto lagi"
+          onClick={() => ctl.grantRetake()}
+        >
+          +1 ulang ({s.live.retakesLeft})
+        </button>
+      )}
       {s.live.phase === 'select' && (
         <div className={`bar__upgrade ${s.live.upgradePending ? 'is-pending' : ''}`}>
           <button type="button" className="btn btn--primary" onClick={() => ctl.approveUpgrade()}>

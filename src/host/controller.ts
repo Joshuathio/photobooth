@@ -319,6 +319,11 @@ export class BoothController {
   }
 
   /** Not paid / changed their mind: back to picking 4 photos. */
+  /** One more retake for the guest on the tablet (e.g. the camera glitched). */
+  grantRetake(): void {
+    this.session.grantRetake();
+  }
+
   declineUpgrade(): void {
     this.session.declineUpgrade();
   }
