@@ -1,12 +1,13 @@
 import { setTimer, type TimerHandle } from '../shared/timers';
 
 /** Frames sent but not yet shown on the tablet. More than this and we wait. */
-const MAX_IN_FLIGHT = 2;
+const MAX_IN_FLIGHT = 3;
 /** An ack that never comes (old tablet page, lost message) stops blocking after this. */
 const ACK_TIMEOUT_MS = 1_000;
 
 /**
- * Sends the live camera picture to the tablet as small JPEG frames, ~12 fps.
+ * Sends the live camera picture to the tablet as small JPEG frames, ~24 fps
+ * (about 25 KB each, well under 1 MB/s over the USB link).
  *
  * Flow control: the tablet acknowledges every frame it has drawn, and at most
  * MAX_IN_FLIGHT frames are on their way at once. When the tablet or the cable
@@ -25,7 +26,7 @@ export class PreviewStream {
     private readonly video: HTMLVideoElement,
     private readonly send: (frame: Blob) => void,
     private readonly canSend: () => boolean,
-    private readonly opts = { fps: 12, width: 640, quality: 0.6 },
+    private readonly opts = { fps: 24, width: 560, quality: 0.55 },
   ) {}
 
   get running(): boolean {
@@ -54,7 +55,7 @@ export class PreviewStream {
   }
 
   private tick = (): void => {
-    // Worker timer: keeps ~12 fps even when the console window is in the background.
+    // Worker timer: keeps the frame rate even when the console window is in the background.
     this.timer = setTimer(this.tick, 1000 / this.opts.fps);
     const { videoWidth: vw, videoHeight: vh } = this.video;
     if (this.encoding || vw === 0 || !this.canSend()) return;
