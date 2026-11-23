@@ -11,7 +11,7 @@ export const ASSETS = {
 
 export type AssetKey = keyof typeof ASSETS;
 
-export const DEFAULT_CLOUD_NAME: string = import.meta.env?.VITE_CLOUDINARY_CLOUD_NAME || 'fbhrxtkn';
+export const DEFAULT_CLOUD_NAME: string = import.meta.env?.VITE_CLOUDINARY_CLOUD_NAME || 'yudkryyf';
 
 export function publicId(code: string, asset: AssetKey): string {
   return `booth/${code}/${ASSETS[asset].name}`;
