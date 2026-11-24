@@ -31,7 +31,7 @@ jobs:
       - run: npm test
       - run: npm run build
         env:
-          VITE_CLOUDINARY_CLOUD_NAME: ${{ vars.VITE_CLOUDINARY_CLOUD_NAME || 'fbhrxtkn' }}
+          VITE_CLOUDINARY_CLOUD_NAME: ${{ vars.VITE_CLOUDINARY_CLOUD_NAME || 'yudkryyf' }}
       - name: Keep only the gallery
         run: |
           rm dist/guest.html

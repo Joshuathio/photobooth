@@ -2,8 +2,7 @@ import '../styles/gallery.css';
 import {
   attachmentUrl,
   croppedPhotoUrl,
-  DEFAULT_CLOUD_NAME,
-  isCloudName,
+  cloudsToTry,
   deliveryUrl,
   photoUrl,
   type AssetKey,
@@ -11,10 +10,11 @@ import {
 import { SHOTS as PHOTO_COUNT } from '../booth/config';
 import { isValidSessionCode, normalizeSessionCode } from '../shared/session-code';
 
-// QR links say which Cloudinary account the photos went to (?c=…). Typed-in codes and
-// older QR links use the account this page was built with (VITE_CLOUDINARY_CLOUD_NAME).
-const linkedCloud = new URLSearchParams(location.search).get('c');
-const CLOUD_NAME = linkedCloud && isCloudName(linkedCloud) ? linkedCloud : DEFAULT_CLOUD_NAME;
+// QR links say which Cloudinary account the photos went to (?c=…). For typed-in codes and
+// older QR links, every account the booth has used is tried (see cloudsToTry).
+const CLOUDS = cloudsToTry(new URLSearchParams(location.search).get('c'));
+/** The account the shown session was found in. */
+let CLOUD_NAME = CLOUDS[0];
 
 function $<T extends HTMLElement = HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -89,16 +89,25 @@ async function showGallery(code: string): Promise<void> {
   gallery.hidden = true;
   loading.hidden = false;
 
-  try {
-    // The story image is the single strip — nicer on a phone than the 2-up print sheet.
-    await loadImage(stripImg, deliveryUrl(CLOUD_NAME, code, 'story'));
-  } catch {
-    if (currentCode !== code) return;
+  // The story image is the single strip — nicer on a phone than the 2-up print sheet.
+  // Look for it in each account the booth has used, and stay with the one that has it.
+  let found = false;
+  for (const cloud of CLOUDS) {
+    try {
+      await loadImage(stripImg, deliveryUrl(cloud, code, 'story'));
+      CLOUD_NAME = cloud;
+      found = true;
+      break;
+    } catch {
+      if (currentCode !== code) return;
+    }
+  }
+  if (currentCode !== code) return;
+  if (!found) {
     setCodeInUrl(null);
     showForm('Foto untuk kode itu tidak ditemukan — cek lagi kodenya.');
     return;
   }
-  if (currentCode !== code) return;
 
   gifImg.src = deliveryUrl(CLOUD_NAME, code, 'gif');
   // Sessions from before the 8-photo update have no "all" image: just hide that part.

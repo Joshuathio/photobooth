@@ -4,6 +4,7 @@ import {
   attachmentUrl,
   croppedPhotoUrl,
   deliveryUrl,
+  cloudsToTry,
   galleryLink,
   isCloudName,
   photoPublicId,
@@ -39,6 +40,13 @@ describe('cloudinary urls', () => {
     expect(galleryLink('https://x.com/g', 'ABCDEF', 'bad name/..')).toBe('https://x.com/g?s=ABCDEF');
     expect(isCloudName('yudkryyf')).toBe(true);
     expect(isCloudName('')).toBe(false);
+  });
+
+  it('looks for a code in the linked account first, then every account the booth used', () => {
+    expect(cloudsToTry('other')).toEqual(['other', 'yudkryyf', 'fbhrxtkn']);
+    expect(cloudsToTry(null)).toEqual(['yudkryyf', 'fbhrxtkn']);
+    expect(cloudsToTry('fbhrxtkn')).toEqual(['fbhrxtkn', 'yudkryyf']);
+    expect(cloudsToTry('bad name/..')).toEqual(['yudkryyf', 'fbhrxtkn']);
   });
 
   it('rejects a gallery url that is not a url', () => {

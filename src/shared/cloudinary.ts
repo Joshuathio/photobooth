@@ -13,6 +13,18 @@ export type AssetKey = keyof typeof ASSETS;
 
 export const DEFAULT_CLOUD_NAME: string = import.meta.env?.VITE_CLOUDINARY_CLOUD_NAME || 'yudkryyf';
 
+/**
+ * Every Cloudinary account the booth has uploaded to, newest first. A code typed into the
+ * gallery is looked up in each, so old codes (Bifest) and new ones both open.
+ */
+export const KNOWN_CLOUD_NAMES: readonly string[] = ['yudkryyf', 'fbhrxtkn'];
+
+/** Accounts to look in for a code: the one the QR names, the page's own, then the rest. */
+export function cloudsToTry(linked: string | null): string[] {
+  const first = linked && isCloudName(linked) ? [linked] : [];
+  return [...new Set([...first, DEFAULT_CLOUD_NAME, ...KNOWN_CLOUD_NAMES])];
+}
+
 export function publicId(code: string, asset: AssetKey): string {
   return `booth/${code}/${ASSETS[asset].name}`;
 }
