@@ -6,6 +6,7 @@ import {
   buildGif,
   buildSheet,
   buildStory,
+  buildGridSheet,
   buildStrip,
   ensureFonts,
   ensureFrameArt,
@@ -83,7 +84,7 @@ export class BoothController {
   private readonly listeners = new Set<() => void>();
   private snapshot: HostSnapshot;
   private logId = 0;
-  private lastSheet: { blob: Blob; code: string; pkg: PrintPackage } | null = null;
+  private lastSheet: { blob: Blob; code: string; pkg: PrintPackage; uncut: boolean } | null = null;
   /** Photos of the last session, so the book file can be made again on request. */
   private lastShots: BookInput<HTMLCanvasElement> | null = null;
   private objectUrls: string[] = [];
@@ -112,7 +113,7 @@ export class BoothController {
     this.session = new BoothSession<HTMLCanvasElement>(
       {
         grab: () => this.camera!.grab(this.snapshot.settings.mirror),
-        thumb: (shot) => shotThumbnail(shot),
+        thumb: (shot, width) => shotThumbnail(shot, width),
         deliver: (input) => this.deliver(input),
         newCode: () => (this.newestCode = generateSessionCode()),
         random: secureRandom,
@@ -354,7 +355,7 @@ export class BoothController {
 
   redownloadSheet(): void {
     if (this.lastSheet) {
-      download(this.lastSheet.blob, sheetFilename(this.lastSheet.code, this.lastSheet.pkg));
+      download(this.lastSheet.blob, sheetFilename(this.lastSheet.code, this.lastSheet.pkg, this.lastSheet.uncut));
     }
   }
 
@@ -390,11 +391,14 @@ export class BoothController {
     // The big layout (16 small landscape cells, 8 photos × 2) is built for every guest: it is
     // the digital "all photos" file, and for the big package also the print.
     const big = buildBigPrint(shots, info, style);
-    // Printed: the strip with the 4 picks (twice), or the big sheet turned for the printer.
-    // `shown` is the upright version for screens and the story.
-    const strip = pkg === 'big' ? null : buildStrip(chosen.map((i) => shots[i]), info, style);
-    const print = strip ? buildSheet(strip) : printForBig(big);
-    const shown = strip ?? big;
+    // Printed: the strip with the 4 picks (twice), the BINUS sheet (one uncut 4R, each pick in
+    // both columns), or the big sheet turned for the printer. `shown` is the upright version
+    // for screens and the story.
+    const picks = chosen.map((i) => shots[i]);
+    const grid = pkg === 'big' || !style.grid ? null : buildGridSheet(picks, style);
+    const strip = pkg === 'big' || grid ? null : buildStrip(picks, info, style);
+    const print = grid ?? (strip ? buildSheet(strip) : printForBig(big));
+    const shown = grid ?? strip ?? big;
 
     const [sheetBlob, storyBlob, allBlob] = await Promise.all([
       toJpeg(print),
@@ -403,6 +407,7 @@ export class BoothController {
     ]);
     const gifBlob = buildGif(shots);
     const stripThumb = stripThumbnail(shown, strip ? 300 : 460);
+    if (grid) this.log(`Sheet BINUS ${chosen.length} foto: cetak 4R utuh, JANGAN dipotong`, 'ok');
     const kb = (b: Blob) => `${Math.round(b.size / 1024)}KB`;
     this.log(`Dibuat: sheet ${kb(sheetBlob)} · story ${kb(storyBlob)} · 8 foto ${kb(allBlob)} · gif ${kb(gifBlob)}`);
 
@@ -414,14 +419,15 @@ export class BoothController {
       this.objectUrls.splice(0).forEach((u) => URL.revokeObjectURL(u));
       sheetUrl = this.objectUrl(sheetBlob);
       gifUrl = this.objectUrl(gifBlob);
-      this.lastSheet = { blob: sheetBlob, code, pkg };
+      this.lastSheet = { blob: sheetBlob, code, pkg, uncut: !!grid };
       this.lastShots = { code, shots, frame };
       this.patch({ lastResult: { code, frame, pkg, sheetUrl, gifUrl, link: null, qr: null } });
     }
 
     // The print sheet always lands on this Mac for the printer, on top of any cloud copy.
-    // Both sheets are two identical halves, so both print with the same 2x6 cut.
-    const sheetName = sheetFilename(code, pkg);
+    // Strip and big sheets are two identical halves, so both print with the same 2x6 cut;
+    // the BINUS sheet is one picture (its banner runs across both columns) and stays whole.
+    const sheetName = sheetFilename(code, pkg, !!grid);
     download(sheetBlob, sheetName);
     this.log(`Download ${sheetName}`, pkg === 'big' ? 'ok' : 'info');
 
@@ -475,7 +481,7 @@ export class BoothController {
     }
     let link: string;
     try {
-      link = galleryLink(settings.galleryUrl, code);
+      link = galleryLink(settings.galleryUrl, code, settings.cloudName);
     } catch {
       this.log(`URL galeri tidak valid: ${settings.galleryUrl}`, 'err');
       return { link: null, stripThumb };
@@ -493,8 +499,9 @@ export class BoothController {
 }
 
 /** The big sheet gets its own name so it's easy to spot in Downloads. */
-function sheetFilename(code: string, pkg: PrintPackage): string {
-  return pkg === 'big' ? `sheet-${code}-besar.jpg` : `sheet-${code}.jpg`;
+function sheetFilename(code: string, pkg: PrintPackage, uncut = false): string {
+  if (pkg === 'big') return `sheet-${code}-besar.jpg`;
+  return uncut ? `sheet-${code}-binus-utuh.jpg` : `sheet-${code}.jpg`;
 }
 
 function download(blob: Blob, filename: string): void {

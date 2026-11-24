@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FRAME_SETS, FRAMES, framesInSet, odds, roll } from '../src/booth/gacha';
+import { FRAME_SETS, FRAMES, GACHA_SETS, fixedFrame, framesInSet, odds, roll, setById } from '../src/booth/gacha';
 
 /** Small seeded PRNG so the distribution test is deterministic. */
 function mulberry32(seed: number): () => number {
@@ -13,14 +13,37 @@ function mulberry32(seed: number): () => number {
 }
 
 describe('gacha', () => {
-  it('has two sets with equal odds inside each set', () => {
-    expect(FRAME_SETS.map((s) => s.label)).toEqual(['Set A', 'Set B']);
+  it('has two gacha sets with equal odds inside each set, plus the BINUS set', () => {
+    expect(FRAME_SETS.map((s) => s.label)).toEqual(['Set A', 'Set B', 'BINUS × Academic Integrity']);
+    expect(GACHA_SETS.map((s) => s.id)).toEqual(['A', 'B']);
     expect(framesInSet('A').map((f) => f.id)).toEqual(['a1', 'a2', 'a3', 'a4', 'a5']);
     expect(framesInSet('B').map((f) => f.id)).toEqual(['b1', 'b2', 'b3']);
-    expect(FRAMES.map((f) => f.name)).toEqual(Array.from({ length: 8 }, (_, i) => `Frame ${i + 1}`));
-    for (const set of FRAME_SETS) {
+    expect(framesInSet('AI').map((f) => f.id)).toEqual(['ai3', 'ai4']);
+    expect(FRAMES.filter((f) => f.set !== 'AI').map((f) => f.name)).toEqual(
+      Array.from({ length: 8 }, (_, i) => `Frame ${i + 1}`),
+    );
+    for (const set of GACHA_SETS) {
       const pool = framesInSet(set.id);
       for (const p of odds(pool)) expect(p).toBeCloseTo(100 / pool.length);
+    }
+  });
+
+  it('gives the BINUS set a 3-photo and a 4-photo sheet, each with one row per photo', () => {
+    expect(setById('AI').fixed).toBe(true);
+    expect(fixedFrame('AI', 3).id).toBe('ai3');
+    expect(fixedFrame('AI', 4).id).toBe('ai4');
+    for (const n of [3, 4] as const) {
+      const f = fixedFrame('AI', n);
+      expect(f.photos).toBe(n);
+      expect(f.art?.sheet).toBe(`/frames/binus/binus-${n}.png`);
+      expect(f.grid?.rows).toHaveLength(n);
+      expect(f.grid?.cols).toHaveLength(2);
+      // Rows go down the sheet without overlapping, inside the 1200 × 1800 sheet.
+      f.grid?.rows.forEach(([y0, y1], i, rows) => {
+        expect(y1).toBeGreaterThan(y0);
+        if (i > 0) expect(y0).toBeGreaterThanOrEqual(rows[i - 1][1]);
+        expect(y1).toBeLessThanOrEqual(1800);
+      });
     }
   });
 

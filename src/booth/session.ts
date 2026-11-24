@@ -1,5 +1,6 @@
 import {
   AFTER_SHOT_MS,
+  COMPARE_THUMB_W,
   COUNTDOWN_FROM,
   DECK_TIMEOUT_MS,
   DECKS,
@@ -14,7 +15,7 @@ import {
   STRIP_SHOTS,
   type DeckId,
 } from './config';
-import { framesInSet, isSetId, roll, setById, type FrameId, type SetId } from './gacha';
+import { fixedFrame, framesInSet, isSetId, roll, setById, type FrameId, type FrameStyle, type SetId } from './gacha';
 import { PromptBag } from './prompts';
 import { Cancelled, sleep as realSleep } from './timing';
 import type { GuestIntent } from '../shared/link-protocol';
@@ -46,7 +47,8 @@ export interface BookInput<Shot> {
 export interface SessionDeps<Shot> {
   grab(): Shot;
   /** Small preview of a shot for the selection screen (a JPEG data URL). */
-  thumb(shot: Shot): string;
+  /** Small JPEG data URL of a shot; `width` defaults to the select grid's size. */
+  thumb(shot: Shot, width?: number): string;
   deliver(input: DeliverInput<Shot>): Promise<DeliverResult>;
   newCode(): string;
   random(): number;
@@ -122,10 +124,19 @@ export class BoothSession<Shot = unknown> {
     });
   }
 
-  /** Highlight a set on the set screen. The guest still has to confirm it. */
-  pickSet(set: SetId): void {
+  /**
+   * Highlight a set on the set screen. The guest still has to confirm it.
+   * A set with no gacha (BINUS) comes with its photo count: 3 or 4.
+   */
+  pickSet(set: SetId, photos?: number): void {
     if (this.current.phase !== 'set' || !isSetId(set)) return;
-    this.set({ set });
+    if (setById(set).fixed) {
+      const counts: number[] = framesInSet(set).map((f) => f.photos ?? STRIP_SHOTS);
+      const count = photos !== undefined && counts.includes(photos) ? photos : Math.max(...counts);
+      this.set({ set, pickCount: count });
+    } else {
+      this.set({ set, pickCount: STRIP_SHOTS });
+    }
   }
 
   /** Highlighted set → pose picker. */
@@ -171,7 +182,7 @@ export class BoothSession<Shot = unknown> {
         this.begin();
         break;
       case 'set':
-        this.pickSet(intent.set);
+        this.pickSet(intent.set, intent.photos);
         break;
       case 'confirmSet':
         this.confirmSet();
@@ -231,15 +242,15 @@ export class BoothSession<Shot = unknown> {
     if (index < 0 || index >= SHOTS) return;
     if (v.selected.includes(index)) {
       this.set({ selected: v.selected.filter((i) => i !== index) });
-    } else if (v.selected.length < STRIP_SHOTS) {
+    } else if (v.selected.length < v.pickCount) {
       this.set({ selected: [...v.selected, index].sort((a, b) => a - b) });
     }
   }
 
-  /** Guest is done picking. Only works with exactly STRIP_SHOTS photos chosen. */
+  /** Guest is done picking. Only works with exactly pickCount photos chosen (4, or 3/4 for BINUS). */
   confirm(): Promise<void> {
     const v = this.current;
-    if (v.phase !== 'select' || v.upgradePending || v.compare || v.selected.length !== STRIP_SHOTS) {
+    if (v.phase !== 'select' || v.upgradePending || v.compare || v.selected.length !== v.pickCount) {
       return Promise.resolve();
     }
     return this.finish('standard', v.selected);
@@ -248,6 +259,8 @@ export class BoothSession<Shot = unknown> {
   /** Guest wants the big print. Waits for the operator to confirm payment. */
   requestUpgrade(): void {
     if (this.current.phase !== 'select' || this.current.upgradePending || this.current.compare) return;
+    // The BINUS frame is its own sheet; the big print is for the gacha sets.
+    if (this.current.set && setById(this.current.set).fixed) return;
     this.armSelectTimeout(); // the request lapses if the operator doesn't answer in time
     this.deps.log('Tamu minta versi besar — konfirmasi pembayaran di Mac', 'ok');
     this.set({ upgradePending: true });
@@ -314,7 +327,15 @@ export class BoothSession<Shot = unknown> {
     if (run !== this.run || this.taken !== taken) return;
 
     this.pendingRetake = { index, shot };
-    this.backToSelect({ compare: { index, old: this.current.thumbs[index] ?? '', fresh: this.deps.thumb(shot) } });
+    // The compare screen shows both photos big, so they get bigger thumbnails than the grid.
+    const old = taken.shots[index];
+    this.backToSelect({
+      compare: {
+        index,
+        old: old ? this.deps.thumb(old, COMPARE_THUMB_W) : (this.current.thumbs[index] ?? ''),
+        fresh: this.deps.thumb(shot, COMPARE_THUMB_W),
+      },
+    });
     const choose = this.nextPhase();
     this.set({ timerMs: RETAKE_CHOOSE_MS, timerId: this.current.timerId + 1 });
     this.after(RETAKE_CHOOSE_MS, choose, () => this.keepRetake('new'));
@@ -330,7 +351,7 @@ export class BoothSession<Shot = unknown> {
     const thumbs = [...v.thumbs];
     if (use === 'new') {
       taken.shots[pending.index] = pending.shot;
-      thumbs[pending.index] = v.compare.fresh;
+      thumbs[pending.index] = this.deps.thumb(pending.shot);
     }
     this.deps.log(use === 'new' ? `Foto ${pending.index + 1} diganti` : `Foto ${pending.index + 1}: tetap yang lama`);
     this.set({ compare: null, thumbs, freshShot: use === 'new' ? pending.index : null });
@@ -404,7 +425,8 @@ export class BoothSession<Shot = unknown> {
       }
       // Fill the strip with the earliest photos the guest didn't pick, then carry on.
       const picked = [...this.current.selected];
-      for (const i of ALL_SHOTS) if (picked.length < STRIP_SHOTS && !picked.includes(i)) picked.push(i);
+      const count = this.current.pickCount;
+      for (const i of ALL_SHOTS) if (picked.length < count && !picked.includes(i)) picked.push(i);
       this.deps.log('Waktu pilih foto habis — dipilih otomatis');
       void this.finish('standard', picked.sort((a, b) => a - b));
     });
@@ -483,10 +505,18 @@ export class BoothSession<Shot = unknown> {
     const signal = this.nextPhase();
 
     // Roll first: the frame is part of the print, so it has to be known before composing.
-    // Only frames from the set the guest picked are in the pool.
-    const pick = roll(framesInSet(this.current.set ?? 'A'), this.deps.random());
+    // Only frames from the set the guest picked are in the pool. BINUS has no roll:
+    // its frame is the one for the photo count the guest chose.
+    const setId = this.current.set ?? 'A';
+    let pick: FrameStyle;
+    if (setById(setId).fixed) {
+      pick = fixedFrame(setId, chosen.length);
+      this.deps.log(`Frame: ${setById(setId).label} · ${chosen.length} foto (cetak 4R utuh, jangan dipotong)`, 'ok');
+    } else {
+      pick = roll(framesInSet(setId), this.deps.random());
+      this.deps.log(`Gacha: ${pick.name} (${setById(pick.set).label}) · ${pkg === 'big' ? 'versi besar' : 'strip'}`, 'ok');
+    }
     const frame = pick.id as FrameId;
-    this.deps.log(`Gacha: ${pick.name} (${setById(pick.set).label}) · ${pkg === 'big' ? 'versi besar' : 'strip'}`, 'ok');
     this.set({
       phase: 'reveal',
       frame,

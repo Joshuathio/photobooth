@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { BOOK_PRICE_TAG, DECKS, MAX_RETAKES, SHOTS, type Deck, type DeckId } from '../booth/config';
-import { FRAME_SETS, frameById, framesInSet, setById, type FrameStyle, type SetId } from '../booth/gacha';
+import { FRAME_SETS, GACHA_SETS, frameById, framesInSet, setById, type FrameSet, type FrameStyle, type SetId } from '../booth/gacha';
 import type { GuestIntent } from '../shared/link-protocol';
 import type { GuestView } from '../shared/view';
 import { Burst, Star } from '../ui/Decor';
@@ -27,10 +27,11 @@ export function GuestScreen({ view, preview, onIntent }: Props) {
   return (
     <div className={`gs ${view.phase === 'idle' ? 'sky-bg' : 'gingham'} gs--${view.phase}`}>
       {view.phase === 'idle' && <Attract preview={preview} onStart={() => onIntent({ type: 'start' })} />}
-      {view.phase === 'set' && <SetPicker chosen={view.set} onIntent={onIntent} />}
+      {view.phase === 'set' && <SetPicker chosen={view.set} photos={view.pickCount} onIntent={onIntent} />}
       {view.phase === 'deck' && (
         <DeckPicker
           set={view.set}
+          photos={view.pickCount}
           onPick={(deck) => onIntent({ type: 'deck', deck })}
           onBack={() => onIntent({ type: 'back' })}
         />
@@ -156,7 +157,7 @@ function Attract({ preview, onStart }: { preview: ReactNode; onStart(): void }) 
             <span className="tape gs-odds__tape" />
             <p className="gs-odds__title">Frames you might get</p>
             <ul>
-              {FRAME_SETS.map((set) => (
+              {GACHA_SETS.map((set) => (
                 <li key={set.id}>
                   <b className="gs-odds__set tag">{set.label}</b>
                   <span className="gs-odds__strips">
@@ -224,7 +225,7 @@ const frameNo = (frame: FrameStyle) => frame.name.replace(/\D+/g, '');
 function SetStrip({ frame, slot, count }: { frame: FrameStyle; slot: number; count: number }) {
   // Fan the strips out like a hand of cards; wider sets fan tighter.
   const off = slot - (count - 1) / 2;
-  const step = count > 3 ? 70 : 96;
+  const step = count > 3 ? 56 : 84;
   const tilt = count > 3 ? 7 : 10;
   const style = {
     ...frameVars(frame),
@@ -251,7 +252,86 @@ function SetStrip({ frame, slot, count }: { frame: FrameStyle; slot: number; cou
   );
 }
 
-function SetPicker({ chosen, onIntent }: { chosen: SetId | null; onIntent(intent: GuestIntent): void }) {
+/** Short name for chips and hints: "Set A", or "BINUS · 3 photos". */
+function setChip(set: SetId, photos: number): string {
+  return setById(set).fixed ? `BINUS · ${photos} photos` : setById(set).label;
+}
+
+/** The BINUS collab card: no gacha, the guest taps the 3- or 4-photo frame. */
+function FixedSetCard({
+  set,
+  chosen,
+  photos,
+  onIntent,
+}: {
+  set: FrameSet;
+  chosen: SetId | null;
+  photos: number;
+  onIntent(intent: GuestIntent): void;
+}) {
+  const on = chosen === set.id;
+  const largest = Math.max(...framesInSet(set.id).map((f) => f.photos ?? 4)) as 3 | 4;
+  return (
+    // Tapping anywhere on the card picks it (with the 4-photo frame); the two frame
+    // pictures inside choose 3 or 4. Guests tap the card like they do Set A and B.
+    <div
+      className={`gs-setcard gs-setcard--fixed ${on ? 'is-on' : ''} ${chosen && !on ? 'is-off' : ''}`}
+      style={{ '--tint': set.tint } as CSSProperties}
+      onClick={() => {
+        if (!on) onIntent({ type: 'set', set: set.id, photos: largest });
+      }}
+    >
+      <span className="tape gs-setcard__tape" />
+      <span className="gs-setcard__collab sticky">No gacha!</span>
+      <span className="gs-setcard__brand">
+        <b>
+          BINUS <span className="gs-x">×</span>
+        </b>
+        <span>Academic Integrity</span>
+      </span>
+      <span className="gs-setcard__layouts">
+        {framesInSet(set.id).map((f) => {
+          const n = f.photos ?? 4;
+          const picked = on && photos === n;
+          return (
+            <button
+              key={f.id}
+              type="button"
+              className={`gs-layout ${picked ? 'is-on' : ''}`}
+              aria-pressed={picked}
+              onClick={(e) => {
+                e.stopPropagation(); // not the card's own tap too
+                onIntent({ type: 'set', set: set.id, photos: n });
+              }}
+            >
+              <img src={f.art?.thumb} alt="" />
+              <span className="gs-layout__label">{n} photos</span>
+              {picked && (
+                <span className="gs-setcard__check gs-layout__check" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path d="M5 12.5l4.2 4.2L19 7" fill="none" stroke="currentColor" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </span>
+      <span className="gs-setcard__foot gs-setcard__foot--fixed">Tap 3 or 4 photos</span>
+    </div>
+  );
+}
+
+function SetPicker({
+  chosen,
+  photos,
+  onIntent,
+}: {
+  chosen: SetId | null;
+  photos: number;
+  onIntent(intent: GuestIntent): void;
+}) {
+  const fixed = chosen ? setById(chosen).fixed : false;
   return (
     <div className="gs-sheet paper gs-sets">
       <Star size={46} className="gs-sets__star1" />
@@ -261,10 +341,17 @@ function SetPicker({ chosen, onIntent }: { chosen: SetId | null; onIntent(intent
         Cancel
       </button>
       <h1 className="gs-title sticker gs-sets__title">Pick a set!</h1>
-      <p className="gs-sets__sub">Frame’s a surprise, we pick one for you.</p>
+      <p className="gs-sets__sub">Set A and B give you a surprise frame. With BINUS, you choose.</p>
 
       <ul className="gs-sets__cards">
         {FRAME_SETS.map((set) => {
+          if (set.fixed) {
+            return (
+              <li key={set.id}>
+                <FixedSetCard set={set} chosen={chosen} photos={photos} onIntent={onIntent} />
+              </li>
+            );
+          }
           const frames = framesInSet(set.id);
           const on = chosen === set.id;
           return (
@@ -304,9 +391,11 @@ function SetPicker({ chosen, onIntent }: { chosen: SetId | null; onIntent(intent
 
       <div className="gs-sets__bar">
         <span className="gs-sets__hint sticky">
-          {chosen
-            ? `You’ll get 1 of the ${framesInSet(chosen).length} ${setById(chosen).label} frames`
-            : 'Choose a set.'}
+          {!chosen
+            ? 'Choose a set.'
+            : fixed
+              ? `BINUS frame with ${photos} photos, printed as one full sheet.`
+              : `You’ll get 1 of the ${framesInSet(chosen).length} ${setById(chosen).label} frames`}
         </span>
         <button
           type="button"
@@ -314,7 +403,7 @@ function SetPicker({ chosen, onIntent }: { chosen: SetId | null; onIntent(intent
           aria-disabled={!chosen}
           onClick={() => chosen && onIntent({ type: 'confirmSet' })}
         >
-          {chosen ? `Choose ${setById(chosen).label}` : 'Choose a set'}
+          {!chosen ? 'Choose a set' : fixed ? 'Choose this frame' : `Choose ${setById(chosen).label}`}
         </button>
       </div>
     </div>
@@ -343,7 +432,17 @@ function useSamples(): Record<DeckId, string[]> {
   }, []);
 }
 
-function DeckPicker({ set, onPick, onBack }: { set: SetId | null; onPick(deck: DeckId): void; onBack(): void }) {
+function DeckPicker({
+  set,
+  photos,
+  onPick,
+  onBack,
+}: {
+  set: SetId | null;
+  photos: number;
+  onPick(deck: DeckId): void;
+  onBack(): void;
+}) {
   const samples = useSamples();
   return (
     <div className="gs-sheet paper gs-deck">
@@ -352,7 +451,7 @@ function DeckPicker({ set, onPick, onBack }: { set: SetId | null; onPick(deck: D
       <button type="button" className="gs-back" onClick={onBack}>
         Back
       </button>
-      {set && <span className="gs-deck__set sticky">{setById(set).label}</span>}
+      {set && <span className="gs-deck__set sticky">{setChip(set, photos)}</span>}
       <h1 className="gs-title sticker">Pick your style</h1>
       <p className="gs-deck__sub">Pick one, every shot comes with a pose prompt.</p>
       <ul className="gs-deck__cards">
@@ -492,9 +591,8 @@ function Select({ view, onIntent }: { view: GuestView; onIntent(intent: GuestInt
     <div className="gs-sheet paper gs-select">
       <h1 className="gs-title sticker">Pick your {view.pickCount} favorite photos</h1>
       <p className="gs-select__sub">
-        {view.retakesLeft > 0
-          ? 'Tap a photo to add it to your strip. Not happy with one? Tap Retake.'
-          : 'Tap a photo to add it to your strip.'}
+        Tap a photo to add it to your {view.set && setById(view.set).fixed ? 'sheet' : 'strip'}.
+        {view.retakesLeft > 0 && ' Not happy with one? Tap Retake.'}
       </p>
       <RetakeBudget left={view.retakesLeft} />
 
@@ -559,25 +657,29 @@ function Select({ view, onIntent }: { view: GuestView; onIntent(intent: GuestInt
       </div>
 
       {view.compare && (
-        <div className="gs-pending">
-          <div className="gs-pending__card paper gs-compare">
-            <Star size={44} className="gs-pending__star" />
-            <h2 className="sticker">Which one?</h2>
+        <div className="gs-compare">
+          <div className="gs-compare__sheet paper">
+            <Star size={50} className="gs-compare__star" />
+            <h2 className="gs-compare__title sticker">Which one do you like?</h2>
+            <p className="gs-compare__sub">
+              Photo {view.compare.index + 1}. Tap the one you want to keep.
+            </p>
             <div className="gs-compare__pair">
-              <button type="button" className="gs-compare__pick" onClick={() => onIntent({ type: 'keepRetake', use: 'old' })}>
-                <img src={view.compare.old} alt={`Old photo ${view.compare.index + 1}`} />
-                <span className="gs-compare__label">Keep the old one</span>
+              <button type="button" className="gs-compare__pick is-old" onClick={() => onIntent({ type: 'keepRetake', use: 'old' })}>
+                <span className="gs-compare__photo">
+                  <img src={view.compare.old} alt={`Old photo ${view.compare.index + 1}`} />
+                  <span className="gs-compare__badge sticky">Before</span>
+                </span>
+                <span className="gs-compare__btn">Keep the old one</span>
               </button>
-              <button
-                type="button"
-                className="gs-compare__pick is-new"
-                onClick={() => onIntent({ type: 'keepRetake', use: 'new' })}
-              >
-                <img src={view.compare.fresh} alt={`New photo ${view.compare.index + 1}`} />
-                <span className="gs-compare__label tag">Use the new one</span>
+              <button type="button" className="gs-compare__pick is-new" onClick={() => onIntent({ type: 'keepRetake', use: 'new' })}>
+                <span className="gs-compare__photo">
+                  <img src={view.compare.fresh} alt={`New photo ${view.compare.index + 1}`} />
+                  <span className="gs-compare__badge tag">New!</span>
+                </span>
+                <span className="gs-compare__btn tag">Use the new one</span>
               </button>
             </div>
-            <p className="gs-compare__hint">Tap one. If you don't pick, we'll use the new one.</p>
           </div>
         </div>
       )}
@@ -604,6 +706,7 @@ function Select({ view, onIntent }: { view: GuestView; onIntent(intent: GuestInt
 /* ---------- Gacha reveal ---------- */
 function Reveal({ view }: { view: GuestView }) {
   const frame = frameById(view.frame ?? 'f1');
+  if (setById(frame.set).fixed) return <FrameMoment view={view} frame={frame} />;
   return (
     <div className="gs-reveal">
       <Burst size={220} className="gs-reveal__burst1" />
@@ -624,6 +727,34 @@ function Reveal({ view }: { view: GuestView }) {
         </div>
       </div>
       <p className="gs-reveal__status paper">{view.busy ? 'Getting your photos ready…' : 'Almost there…'}</p>
+    </div>
+  );
+}
+
+/** BINUS set: nothing to roll, just a short "here's your frame" before the photos are ready. */
+function FrameMoment({ view, frame }: { view: GuestView; frame: FrameStyle }) {
+  return (
+    <div className="gs-reveal gs-moment">
+      <Burst size={200} className="gs-reveal__burst1" />
+      <Burst size={130} className="gs-reveal__burst2" />
+      <div className="gs-moment__row">
+        <div className="gs-moment__sheet">
+          <span className="tape gs-moment__tape" />
+          <img src={frame.art?.thumb} alt="" />
+        </div>
+        <div className="gs-moment__text">
+          <p className="sticker">Your frame</p>
+          <h1 className="gs-moment__name sticker">
+            BINUS <span className="gs-x">×</span>
+            <br />
+            Academic Integrity
+          </h1>
+          <p className="gs-moment__count tag">{frame.photos ?? 4} photos</p>
+        </div>
+      </div>
+      <p className="gs-reveal__status paper gs-moment__status">
+        {view.busy ? 'Getting your photos ready…' : 'Almost there…'}
+      </p>
     </div>
   );
 }
@@ -723,9 +854,10 @@ function BookOffer({ view, onIntent }: { view: GuestView; onIntent(intent: Guest
 function Result({ view, onFinish }: { view: GuestView; onFinish(): void }) {
   const frame = frameById(view.frame ?? 'f1');
   const qr = useQr(view.link);
-  const printing = view.pkg === 'big' ? 'Your big version is printing.' : 'Your strip is printing.';
+  const printing =
+    view.pkg === 'big' ? 'Your big version is printing.' : frame.grid ? 'Your photo sheet is printing.' : 'Your strip is printing.';
   return (
-    <div className={`gs-result ${view.pkg === 'big' ? 'gs-result--big' : ''}`}>
+    <div className={`gs-result ${view.pkg === 'big' ? 'gs-result--big' : ''} ${frame.grid ? 'gs-result--sheet' : ''}`}>
       <div className="gs-result__strip">
         <span className="tape gs-result__tape1" />
         {view.stripThumb ? (
@@ -759,7 +891,7 @@ function Result({ view, onFinish }: { view: GuestView; onFinish(): void }) {
             <span className="tag gs-result__code">{view.code}</span>
             <span className="gs-result__label">Frame</span>
             <span className="gs-result__frame" style={frameVars(frame)}>
-              {setById(frame.set).label} · {frame.name}
+              {setById(frame.set).fixed ? `BINUS · ${frame.name}` : `${setById(frame.set).label} · ${frame.name}`}
             </span>
           </div>
         </div>

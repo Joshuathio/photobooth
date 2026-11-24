@@ -259,6 +259,8 @@ export const SELECT_TIMEOUT_MS = 60_000; // nobody picks → the first photos ar
 export const MAX_RETAKES = 3;
 /** After a retake the guest picks the old or the new photo; nobody taps → the new one is kept. */
 export const RETAKE_CHOOSE_MS = 10_000;
+/** Width of the two photos on the "Which one?" screen after a retake (they're shown ~550 px wide). */
+export const COMPARE_THUMB_W = 720;
 export const REVEAL_MS = 3_400; // minimum time the gacha reveal stays on screen
 export const OFFER_MS = 60_000; // book info screen: guests tap Next; this only frees the booth if they walk away
 export const RESULT_MS = 90_000; // result + QR screen (the guest's only look at the session code), then back to attract

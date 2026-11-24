@@ -5,6 +5,7 @@ import {
   croppedPhotoUrl,
   deliveryUrl,
   galleryLink,
+  isCloudName,
   photoPublicId,
   photoUrl,
   publicId,
@@ -28,6 +29,16 @@ describe('cloudinary urls', () => {
   it('adds the session code to the gallery url', () => {
     expect(galleryLink('https://x.com/gallery.html', 'ABCDEF')).toBe('https://x.com/gallery.html?s=ABCDEF');
     expect(galleryLink('https://x.com/g?event=binus', 'ABCDEF')).toBe('https://x.com/g?event=binus&s=ABCDEF');
+  });
+
+  it('puts the cloud name in the link so the gallery looks in the right account', () => {
+    expect(galleryLink('https://dearlyphotobooth.site/', 'ABCDEF', 'yudkryyf')).toBe(
+      'https://dearlyphotobooth.site/?s=ABCDEF&c=yudkryyf',
+    );
+    // Something that isn't a cloud name is left out rather than sent along.
+    expect(galleryLink('https://x.com/g', 'ABCDEF', 'bad name/..')).toBe('https://x.com/g?s=ABCDEF');
+    expect(isCloudName('yudkryyf')).toBe(true);
+    expect(isCloudName('')).toBe(false);
   });
 
   it('rejects a gallery url that is not a url', () => {

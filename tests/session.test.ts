@@ -472,3 +472,82 @@ describe('BoothSession retake', () => {
     expect(deps.deliver).not.toHaveBeenCalled();
   });
 });
+
+/** Attract → BINUS with `photos` → pose picker → select. */
+async function toBinusSelect(session: BoothSession<number>, photos: 3 | 4) {
+  session.begin();
+  session.handleIntent({ type: 'set', set: 'AI', photos }, 'COUPLE');
+  expect(session.view.set).toBe('AI');
+  expect(session.view.pickCount).toBe(photos);
+  session.confirmSet();
+  await session.chooseDeck('COUPLE');
+  expect(session.view.phase).toBe('select');
+}
+
+describe('BoothSession BINUS set', () => {
+  it('3 photos: picks exactly 3 and gets the 3-photo frame, no gacha roll', async () => {
+    // random 0.6 would roll the 2nd frame of the set ('ai4') if a gacha roll happened.
+    const { session, deps } = setup({ random: () => 0.6 });
+    await toBinusSelect(session, 3);
+    [0, 2, 5, 7].forEach((i) => session.toggle(i));
+    expect(session.view.selected).toEqual([0, 2, 5]); // the 4th tap is ignored
+    await session.confirm();
+    expect(deps.deliver).toHaveBeenCalledWith(
+      expect.objectContaining({ chosen: [0, 2, 5], frame: 'ai3', pkg: 'standard' }),
+    );
+    expect(session.view.frame).toBe('ai3');
+  });
+
+  it('4 photos: needs 4 and gets the 4-photo frame', async () => {
+    const { session, deps } = setup();
+    await toBinusSelect(session, 4);
+    [1, 3, 4].forEach((i) => session.toggle(i));
+    await session.confirm();
+    expect(session.view.phase).toBe('select'); // 3 isn't enough
+    session.toggle(6);
+    await session.confirm();
+    expect(deps.deliver).toHaveBeenCalledWith(expect.objectContaining({ chosen: [1, 3, 4, 6], frame: 'ai4' }));
+  });
+
+  it('switching between the 3 and 4 photo frame, and back to a gacha set, updates the count', () => {
+    const { session } = setup();
+    session.begin();
+    session.handleIntent({ type: 'set', set: 'AI', photos: 3 }, 'COUPLE');
+    expect(session.view.pickCount).toBe(3);
+    session.handleIntent({ type: 'set', set: 'AI', photos: 4 }, 'COUPLE');
+    expect(session.view.pickCount).toBe(4);
+    session.handleIntent({ type: 'set', set: 'AI', photos: 3 }, 'COUPLE');
+    session.pickSet('A');
+    expect(session.view).toMatchObject({ set: 'A', pickCount: STRIP_SHOTS });
+    // A bad or missing count on the BINUS set falls back to 4.
+    session.handleIntent({ type: 'set', set: 'AI', photos: 7 as 3 }, 'COUPLE');
+    expect(session.view.pickCount).toBe(4);
+  });
+
+  it('auto-fills up to 3 when nobody finishes picking', async () => {
+    const { session, deps } = setup({}, ['select']);
+    session.begin();
+    session.handleIntent({ type: 'set', set: 'AI', photos: 3 }, 'COUPLE');
+    session.confirmSet();
+    // The timeout fires as soon as the selection screen opens.
+    const run = session.chooseDeck('COUPLE');
+    await vi.waitFor(() => expect(deps.deliver).toHaveBeenCalled());
+    await run;
+    expect(deps.deliver).toHaveBeenCalledWith(expect.objectContaining({ chosen: [0, 1, 2], frame: 'ai3' }));
+  });
+
+  it('offers no big print on the BINUS set', async () => {
+    const { session } = setup();
+    await toBinusSelect(session, 3);
+    session.requestUpgrade();
+    expect(session.view.upgradePending).toBe(false);
+  });
+
+  it('starts the next guest back at 4 photos', async () => {
+    const { session } = setup();
+    await toBinusSelect(session, 3);
+    session.reset();
+    session.begin();
+    expect(session.view).toMatchObject({ set: null, pickCount: STRIP_SHOTS });
+  });
+});

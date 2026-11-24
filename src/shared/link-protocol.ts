@@ -15,7 +15,8 @@ export type Role = 'host' | 'guest' | 'preview';
 export type GuestIntent =
   | { type: 'start' }
   /** Highlight a frame set on the set screen. */
-  | { type: 'set'; set: SetId }
+  /** `photos` picks the 3- or 4-photo frame of a set with no gacha (BINUS). */
+  | { type: 'set'; set: SetId; photos?: 3 | 4 }
   /** Use the highlighted set and go on to the pose picker. */
   | { type: 'confirmSet' }
   | { type: 'deck'; deck: DeckId }

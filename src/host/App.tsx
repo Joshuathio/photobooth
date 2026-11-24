@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { BOOK_PRICE, DECKS, type DeckId } from '../booth/config';
-import { FRAMES, frameById, setById } from '../booth/gacha';
+import { FRAMES, frameById, setById, type SetId } from '../booth/gacha';
 import { hasCloud } from '../booth/settings';
 import { GuestScreen, STAGE_H, STAGE_W } from '../guest/GuestScreen';
 import { PHASE_LABELS, type GuestView, type Phase } from '../shared/view';
@@ -14,6 +14,12 @@ interface PanelProps {
   ctl: BoothController;
 }
 
+/** "Set A", or "BINUS · 3 foto" for the set without gacha. */
+function setText(v: { set: SetId | null; pickCount: number }): string {
+  if (!v.set) return '';
+  return setById(v.set).fixed ? `BINUS · ${v.pickCount} foto` : setById(v.set).label;
+}
+
 const PREVIEW_PHASES: Phase[] = ['idle', 'set', 'deck', 'capturing', 'select', 'reveal', 'offer', 'result'];
 
 function phaseText(v: GuestView): string {
@@ -21,9 +27,9 @@ function phaseText(v: GuestView): string {
     case 'idle':
       return 'Siap — menunggu tamu';
     case 'set':
-      return v.set ? `Tamu sedang pilih set (${setById(v.set).label})` : 'Tamu sedang pilih set frame';
+      return v.set ? `Tamu sedang pilih set (${setText(v)})` : 'Tamu sedang pilih set frame';
     case 'deck':
-      return `Tamu sedang pilih gaya${v.set ? ` · ${setById(v.set).label}` : ''}`;
+      return `Tamu sedang pilih gaya${v.set ? ` · ${setText(v)}` : ''}`;
     case 'capturing':
       return v.retakeOf !== null
         ? `Ulang foto ${v.retakeOf + 1} · sisa ulang ${v.retakesLeft}`
@@ -33,6 +39,7 @@ function phaseText(v: GuestView): string {
       if (v.compare) return `Tamu pilih foto ${v.compare.index + 1} lama atau baru`;
       return `Tamu memilih foto (${v.selected.length}/${v.pickCount}) · sisa ulang ${v.retakesLeft}`;
     case 'reveal':
+      if (v.set && setById(v.set).fixed) return v.busy ? 'Frame BINUS + menyiapkan foto…' : 'Frame BINUS';
       return v.busy ? 'Gacha + menyiapkan foto…' : 'Gacha';
     case 'offer':
       return `Info gantungan kunci buku (${BOOK_PRICE})`;
@@ -183,7 +190,11 @@ function ResultPanel({ s, ctl }: PanelProps) {
             <div className="result__chips">
               <FrameChip id={r.frame} />
               <span className={`pkg-chip ${r.pkg === 'big' ? 'is-big' : ''}`}>
-                {r.pkg === 'big' ? 'Besar · 8 foto kecil × 2' : 'Strip · 4 foto'}
+                {r.pkg === 'big'
+                  ? 'Besar · 8 foto kecil × 2'
+                  : frameById(r.frame).grid
+                    ? `BINUS · ${frameById(r.frame).photos ?? 4} foto · jangan dipotong`
+                    : 'Strip · 4 foto'}
               </span>
             </div>
             {r.qr ? (

@@ -3,6 +3,7 @@ import {
   attachmentUrl,
   croppedPhotoUrl,
   DEFAULT_CLOUD_NAME,
+  isCloudName,
   deliveryUrl,
   photoUrl,
   type AssetKey,
@@ -10,8 +11,10 @@ import {
 import { SHOTS as PHOTO_COUNT } from '../booth/config';
 import { isValidSessionCode, normalizeSessionCode } from '../shared/session-code';
 
-// Must match the cloud name the booth uploads to (set VITE_CLOUDINARY_CLOUD_NAME in .env).
-const CLOUD_NAME = DEFAULT_CLOUD_NAME;
+// QR links say which Cloudinary account the photos went to (?c=…). Typed-in codes and
+// older QR links use the account this page was built with (VITE_CLOUDINARY_CLOUD_NAME).
+const linkedCloud = new URLSearchParams(location.search).get('c');
+const CLOUD_NAME = linkedCloud && isCloudName(linkedCloud) ? linkedCloud : DEFAULT_CLOUD_NAME;
 
 function $<T extends HTMLElement = HTMLElement>(id: string): T {
   const el = document.getElementById(id);

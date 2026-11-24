@@ -247,6 +247,28 @@ export function buildStrip(
   return c;
 }
 
+/**
+ * Whole-sheet frame (the BINUS ones): a 4R printed uncut, photo i in row i of
+ * both columns, the designer's PNG on top. The art must be loaded first
+ * (ensureFrameArt); without it the photos still print on the frame colour.
+ */
+export function buildGridSheet(shots: HTMLCanvasElement[], frame: FrameStyle): HTMLCanvasElement {
+  const [c, ctx] = canvas(SHEET_W, SHEET_H);
+  ctx.fillStyle = frame.bg;
+  ctx.fillRect(0, 0, SHEET_W, SHEET_H);
+  const grid = frame.grid;
+  if (grid) {
+    grid.rows.forEach(([y0, y1], i) => {
+      const shot = shots[i];
+      if (!shot) return;
+      for (const [x0, x1] of grid.cols) drawCover(ctx, shot, x0, y0, x1 - x0, y1 - y0);
+    });
+  }
+  const art = artFor(frame);
+  if (art) ctx.drawImage(art, 0, 0, SHEET_W, SHEET_H);
+  return c;
+}
+
 /** Small 3:2 JPEG of one shot for the tablet's selection screen. */
 export function shotThumbnail(shot: HTMLCanvasElement, width = 360): string {
   const h = Math.round(width / 1.5);

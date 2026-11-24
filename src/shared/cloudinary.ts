@@ -78,11 +78,21 @@ export function croppedPhotoUrl(
   return `https://res.cloudinary.com/${cloud}/image/upload/${steps.join('/')}/${publicId(code, 'all')}.jpg`;
 }
 
-/** Appends ?s=CODE (or &s=CODE) to the hosted gallery page URL. */
-export function galleryLink(galleryUrl: string, code: string): string {
+/**
+ * Appends ?s=CODE (or &s=CODE) to the hosted gallery page URL, plus c=CLOUD: the
+ * Cloudinary account the booth uploaded to. The gallery then looks there, so a
+ * QR keeps working even when the gallery site was built for another account.
+ */
+export function galleryLink(galleryUrl: string, code: string, cloud?: string): string {
   const url = new URL(galleryUrl);
   url.searchParams.set('s', code);
+  if (cloud && isCloudName(cloud)) url.searchParams.set('c', cloud);
   return url.toString();
+}
+
+/** Cloudinary cloud names are short lowercase words (letters, digits, - and _). */
+export function isCloudName(value: string): boolean {
+  return /^[a-z0-9][a-z0-9_-]{1,62}$/i.test(value);
 }
 
 export async function uploadUnsigned(
