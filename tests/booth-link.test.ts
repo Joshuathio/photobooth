@@ -22,7 +22,7 @@ async function start(heartbeatMs = 60_000): Promise<number> {
 }
 
 /** Connects and collects every message, so nothing is missed between awaits. */
-async function connect(port: number, role: 'host' | 'guest', opts: { autoPong?: boolean } = {}) {
+async function connect(port: number, role: 'host' | 'guest' | 'preview', opts: { autoPong?: boolean } = {}) {
   const ws = new WebSocket(`ws://127.0.0.1:${port}${LINK_PATH}?role=${role}`, opts);
   sockets.push(ws);
   const inbox: { data: Buffer; binary: boolean }[] = [];
@@ -85,6 +85,34 @@ describe('booth link hub', () => {
     host.ws.send(Buffer.from([0xff, 0xd8, 0xff]), { binary: true });
     const frame = await guest.next((m) => m.binary);
     expect([...frame.data]).toEqual([0xff, 0xd8, 0xff]);
+  });
+
+  it("sends frames to the tablet's preview socket instead of the page once it's there", async () => {
+    const port = await start();
+    const host = await connect(port, 'host');
+    const guest = await connect(port, 'guest');
+    const preview = await connect(port, 'preview');
+    // The preview socket isn't a second tablet.
+    await new Promise((r) => setTimeout(r, 50));
+    const peers = host.inbox.filter((m) => !m.binary).map((m) => JSON.parse(m.data.toString()));
+    expect(peers.at(-1)).toEqual({ type: 'peers', hosts: 1, guests: 1, active: true });
+
+    host.ws.send(Buffer.from([7, 7, 7]), { binary: true });
+    expect((await preview.next((m) => m.binary)).data).toEqual(Buffer.from([7, 7, 7]));
+    host.ws.send(JSON.stringify({ type: 'state', view: { phase: 'idle' } }));
+    await guest.nextJson('state');
+    expect(guest.inbox.some((m) => m.binary)).toBe(false);
+    expect(preview.inbox.some((m) => !m.binary && m.data.toString().includes('"state"'))).toBe(false);
+
+    // Its acks reach the console.
+    preview.ws.send(JSON.stringify({ type: 'frameAck' }));
+    await host.nextJson('frameAck');
+
+    // Preview socket gone (old tablet page, worker blocked): frames go to the page again.
+    preview.ws.close();
+    await new Promise((r) => setTimeout(r, 50));
+    host.ws.send(Buffer.from([8]), { binary: true });
+    expect((await guest.next((m) => m.binary)).data).toEqual(Buffer.from([8]));
   });
 
   it('ignores other upgrade paths', async () => {

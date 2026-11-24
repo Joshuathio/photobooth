@@ -28,8 +28,27 @@ export function createLinkHub({ heartbeatMs = HEARTBEAT_MS }: { heartbeatMs?: nu
   const peers = () => {
     let hosts = 0;
     let guests = 0;
-    for (const c of clients.values()) c.role === 'host' ? hosts++ : guests++;
+    for (const c of clients.values()) {
+      if (c.role === 'host') hosts++;
+      else if (c.role === 'guest') guests++;
+    }
     return { hosts, guests };
+  };
+
+  /**
+   * Who gets the camera frames: the tablet's preview socket when it has one
+   * (frames then skip the page's busy main thread); otherwise the tablet page
+   * itself, so an older tablet page still shows the camera.
+   */
+  const frameTargets = (): WebSocket[] => {
+    const preview: WebSocket[] = [];
+    const guests: WebSocket[] = [];
+    for (const [ws, c] of clients) {
+      if (ws.readyState !== WebSocket.OPEN) continue;
+      if (c.role === 'preview') preview.push(ws);
+      else if (c.role === 'guest') guests.push(ws);
+    }
+    return preview.length > 0 ? preview : guests;
   };
 
   /** The console the tablet follows: the newest open one. */
@@ -56,8 +75,8 @@ export function createLinkHub({ heartbeatMs = HEARTBEAT_MS }: { heartbeatMs?: nu
   };
 
   wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
-    const role: Role =
-      new URL(req.url ?? '/', 'http://localhost').searchParams.get('role') === 'host' ? 'host' : 'guest';
+    const asked = new URL(req.url ?? '/', 'http://localhost').searchParams.get('role');
+    const role: Role = asked === 'host' || asked === 'preview' ? asked : 'guest';
     clients.set(ws, { role, alive: true, since: order++ });
     announcePeers();
 
@@ -68,10 +87,16 @@ export function createLinkHub({ heartbeatMs = HEARTBEAT_MS }: { heartbeatMs?: nu
     ws.on('message', (data: RawData, isBinary: boolean) => {
       if (role === 'host') {
         if (ws !== activeHost()) return; // an older console tab: ignored
+        if (isBinary) {
+          for (const peer of frameTargets()) {
+            if (peer.bufferedAmount > MAX_BUFFERED_BYTES) continue;
+            peer.send(data, { binary: true });
+          }
+          return;
+        }
         for (const [peer, c] of clients) {
           if (c.role !== 'guest' || peer.readyState !== WebSocket.OPEN) continue;
-          if (isBinary && peer.bufferedAmount > MAX_BUFFERED_BYTES) continue;
-          peer.send(data, { binary: isBinary });
+          peer.send(data, { binary: false });
         }
       } else {
         const host = activeHost();

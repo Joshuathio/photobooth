@@ -5,7 +5,11 @@ import type { GuestView } from './view';
 /** WebSocket path on the dev server that connects the Mac and the tablet. */
 export const LINK_PATH = '/booth-link';
 
-export type Role = 'host' | 'guest';
+/**
+ * "preview" is the tablet's second socket, opened by the worker that draws the
+ * camera picture: it only receives frames and sends frame acks.
+ */
+export type Role = 'host' | 'guest' | 'preview';
 
 /** Taps on the guest screen, sent to the Mac. */
 export type GuestIntent =

@@ -60,13 +60,20 @@ function useSelfHeal(linkUp: boolean): void {
   }, [linkUp]);
 }
 
+/** The page's link to the booth, for frame acks of frames that came through it. */
+let pageLink: Link | null = null;
+/**
+ * Camera frames bypass React state: drawing one must not re-render the whole
+ * screen. One for the page's lifetime (outside React, so StrictMode's double
+ * render can't start a second worker with a second socket).
+ */
+const frames = new PreviewFrames(() => pageLink?.send({ type: 'frameAck' }));
+
 function GuestApp() {
   const [view, setView] = useState<GuestView>(IDLE_VIEW);
   const [linkUp, setLinkUp] = useState(false);
   const [hosts, setHosts] = useState(0);
   const link = useRef<Link | null>(null);
-  // Camera frames bypass React state: drawing one must not re-render the whole screen.
-  const frames = useMemo(() => new PreviewFrames(() => link.current?.send({ type: 'frameAck' })), []);
 
   useEffect(() => {
     const l = new Link('guest', {
@@ -82,14 +89,18 @@ function GuestApp() {
       onFrame: (blob) => frames.push(blob),
     });
     link.current = l;
-    return () => l.close();
-  }, [frames]);
+    pageLink = l;
+    return () => {
+      if (pageLink === l) pageLink = null;
+      l.close();
+    };
+  }, []);
 
   useKioskMode();
   useSelfHeal(linkUp);
 
   const online = linkUp && hosts > 0;
-  const preview = useMemo(() => <LivePreview frames={frames} />, [frames]);
+  const preview = useMemo(() => <LivePreview frames={frames} />, []);
 
   return (
     <ScaledStage width={STAGE_W} height={STAGE_H}>

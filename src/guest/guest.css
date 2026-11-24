@@ -33,3 +33,17 @@ body,
   font-weight: 700;
   line-height: 1.4;
 }
+
+/* Frame counter, only with ?fps in the tablet's address. */
+.preview-fps {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 5;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font: 700 16px/1.2 ui-monospace, Menlo, monospace;
+  pointer-events: none;
+}
