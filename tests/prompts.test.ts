@@ -15,9 +15,9 @@ function mulberry32(seed: number) {
 const POOLED = (Object.keys(DECKS) as DeckId[]).filter((id) => !(DECKS[id] as Deck).free);
 
 describe('prompt pools', () => {
-  it('has 21–24 different prompts in every gaya, without "Bebas" in the pool', () => {
-    expect(POOLED).toEqual(['BESTIE', 'COUPLE', 'CHAOS', 'CORPORATE', 'KULIAH']);
-    expect(POOLED.map((id) => DECKS[id].prompts.length)).toEqual([21, 24, 24, 24, 24]);
+  it('has 15 different prompts in every gaya, without "Bebas" in the pool', () => {
+    expect(POOLED).toEqual(['BESTIE', 'COUPLE', 'KULIAH']);
+    expect(POOLED.map((id) => DECKS[id].prompts.length)).toEqual([15, 15, 15]);
     for (const id of POOLED) {
       const pool = DECKS[id].prompts;
       expect(new Set(pool).size).toBe(pool.length);
@@ -49,21 +49,21 @@ describe('PromptBag', () => {
 
   it('never repeats a prompt for back-to-back groups until the pool is used up', () => {
     const bag = new PromptBag(mulberry32(7));
-    const first3 = [bag.draw('BESTIE'), bag.draw('BESTIE'), bag.draw('BESTIE')].flatMap((p) => p.slice(0, -1));
-    expect(first3).toHaveLength(21);
-    expect(new Set(first3).size).toBe(21); // 21 of 24 used, none twice
+    const first2 = [bag.draw('BESTIE'), bag.draw('BESTIE')].flatMap((p) => p.slice(0, -1));
+    expect(first2).toHaveLength(14);
+    expect(new Set(first2).size).toBe(14); // 14 of 15 used, none twice
   });
 
   it('uses every prompt about equally over a day', () => {
     const bag = new PromptBag(mulberry32(3));
     const counts = new Map<string, number>();
     for (let s = 0; s < 48; s++) {
-      for (const p of bag.draw('CHAOS').slice(0, -1)) counts.set(p, (counts.get(p) ?? 0) + 1);
+      for (const p of bag.draw('BESTIE').slice(0, -1)) counts.set(p, (counts.get(p) ?? 0) + 1);
     }
-    expect(counts.size).toBe(24);
+    expect(counts.size).toBe(15);
     for (const n of counts.values()) {
-      expect(n).toBeGreaterThanOrEqual(13); // 48 × 7 / 24 = 14 each
-      expect(n).toBeLessThanOrEqual(15);
+      expect(n).toBeGreaterThanOrEqual(21); // 48 × 7 / 15 = 22.4 each
+      expect(n).toBeLessThanOrEqual(24);
     }
   });
 
@@ -77,9 +77,9 @@ describe('PromptBag', () => {
 
   it('keeps a separate pile per gaya', () => {
     const bag = new PromptBag(mulberry32(5));
-    const corp = bag.draw('CORPORATE');
+    const bestie = bag.draw('BESTIE');
     const kuliah = bag.draw('KULIAH');
-    for (const p of corp.slice(0, -1)) expect(DECKS.CORPORATE.prompts).toContain(p);
+    for (const p of bestie.slice(0, -1)) expect(DECKS.BESTIE.prompts).toContain(p);
     for (const p of kuliah.slice(0, -1)) expect(DECKS.KULIAH.prompts).toContain(p);
   });
 

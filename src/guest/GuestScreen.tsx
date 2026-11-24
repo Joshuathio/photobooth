@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { BOOK_PRICE_TAG, DECKS, MAX_RETAKES, SHOTS, type Deck, type DeckId } from '../booth/config';
+import { BOOK_PRICE_TAG, DECKS, MAX_RETAKES, type Deck, type DeckId } from '../booth/config';
 import { FRAME_SETS, GACHA_SETS, frameById, framesInSet, setById, type FrameSet, type FrameStyle, type SetId } from '../booth/gacha';
 import type { GuestIntent } from '../shared/link-protocol';
 import type { GuestView } from '../shared/view';
@@ -412,9 +412,7 @@ function SetPicker({
 
 /* ---------- Deck picker ---------- */
 /** Poses previewed on each card; the rest are a surprise. */
-const CARD_POSES = 3;
-/** Poses per session that come from the pool (the last shot is always "Bebas"). */
-const DRAWN = SHOTS - 1;
+const CARD_POSES = 5;
 
 /** A few sample prompts per gaya, picked fresh each time the screen opens. */
 function useSamples(): Record<DeckId, string[]> {
@@ -476,7 +474,7 @@ function DeckPicker({
                   </span>
                 )}
                 <span className="gs-card__more">
-                  {deck.free ? 'You’re in charge' : `${DRAWN} random poses out of ${deck.prompts.length}`}
+                  {deck.free ? 'You’re in charge' : `…and ${deck.prompts.length - CARD_POSES} more random poses`}
                 </span>
               </button>
             </li>

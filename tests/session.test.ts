@@ -170,7 +170,7 @@ describe('BoothSession', () => {
       log,
     });
     toDeck(session);
-    await session.chooseDeck('CHAOS');
+    await session.chooseDeck('BESTIE');
     expect(session.view.phase).toBe('idle');
     expect(log).toHaveBeenCalledWith(expect.stringContaining('camera lost'), 'err');
   });
@@ -179,7 +179,7 @@ describe('BoothSession', () => {
     const { deps, session } = setup({}, ['select']);
     toDeck(session);
     // The timeout fires as soon as the selection screen opens, so pick inside the same tick.
-    const run = session.chooseDeck('CHAOS');
+    const run = session.chooseDeck('BESTIE');
     await vi.waitFor(() => expect(deps.deliver).toHaveBeenCalled());
     await run;
     expect(deps.deliver).toHaveBeenCalledWith(expect.objectContaining({ pkg: 'standard', chosen: [0, 1, 2, 3] }));
@@ -188,7 +188,7 @@ describe('BoothSession', () => {
   it('cancels a capture on reset without taking photos', async () => {
     const { deps, session } = setup();
     toDeck(session);
-    const run = session.chooseDeck('CHAOS');
+    const run = session.chooseDeck('BESTIE');
     session.reset();
     await run;
     expect(session.view.phase).toBe('idle');
