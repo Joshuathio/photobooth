@@ -30,8 +30,6 @@ const gallery = $('gallery');
 const codeLabel = $('codeLabel');
 const stripImg = $<HTMLImageElement>('stripImg');
 const gifImg = $<HTMLImageElement>('gifImg');
-const allWrap = $('allWrap');
-const allImg = $<HTMLImageElement>('allImg');
 const shareBtn = $<HTMLButtonElement>('shareBtn');
 const picksWrap = $('picksWrap');
 const picksGrid = $('picksGrid');
@@ -110,15 +108,6 @@ async function showGallery(code: string): Promise<void> {
   }
 
   gifImg.src = deliveryUrl(CLOUD_NAME, code, 'gif');
-  // Sessions from before the 8-photo update have no "all" image: just hide that part.
-  allWrap.hidden = true;
-  loadImage(allImg, deliveryUrl(CLOUD_NAME, code, 'all')).then(
-    () => {
-      if (currentCode !== code) return;
-      allWrap.hidden = false;
-    },
-    () => {},
-  );
   for (const [asset, a] of Object.entries(downloadLinks) as [Exclude<AssetKey, 'all'>, HTMLAnchorElement][]) {
     a.href = attachmentUrl(CLOUD_NAME, code, asset);
   }

@@ -136,25 +136,6 @@ body.gallery:has(.code-form:not([hidden])) {
   border-radius: 4px;
   box-shadow: 0 10px 24px rgba(34, 52, 92, 0.3);
 }
-.all-wrap {
-  margin: 0;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-#allImg {
-  display: block;
-  width: 100%;
-  border-radius: 3px;
-  box-shadow: 0 10px 24px rgba(34, 52, 92, 0.25);
-  transform: rotate(-1deg);
-}
-.all-wrap figcaption {
-  font-size: 14px;
-  font-weight: 800;
-}
 .picks {
   width: 100%;
   display: flex;
