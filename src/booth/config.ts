@@ -150,6 +150,28 @@ export const DECKS = {
       'Presentasi, tapi lupa materi',
     ],
   },
+  MEMES: {
+    label: 'Memes',
+    // The prompts are only keys for the reference photos (MEME_IMAGES); guests see MEME_CAPTION.
+    blurb: ['Ikutin fotonya!'],
+    prompts: [
+      'meme-01',
+      'meme-02',
+      'meme-03',
+      'meme-04',
+      'meme-05',
+      'meme-06',
+      'meme-07',
+      'meme-08',
+      'meme-09',
+      'meme-10',
+      'meme-11',
+      'meme-12',
+      'meme-13',
+      'meme-14',
+      'meme-15',
+    ],
+  },
   BEBAS: {
     label: 'Bebas',
     free: true,
@@ -169,6 +191,28 @@ export const DECKS = {
 } as const satisfies Record<string, Deck>;
 
 export type DeckId = keyof typeof DECKS;
+
+/** What the capture screen says for every Memes shot, in place of the prompt key. */
+export const MEME_CAPTION = 'Ikutin fotonya!';
+
+/** Reference photo shown on the capture screen for each Memes prompt (files in public/). */
+export const MEME_IMAGES: Readonly<Record<string, string>> = {
+  'meme-01': '/meme-01.jpg',
+  'meme-02': '/meme-02.jpg',
+  'meme-03': '/meme-03.jpg',
+  'meme-04': '/meme-04.jpg',
+  'meme-05': '/meme-05.jpg',
+  'meme-06': '/meme-06.jpg',
+  'meme-07': '/meme-07.jpg',
+  'meme-08': '/meme-08.jpg',
+  'meme-09': '/meme-09.jpg',
+  'meme-10': '/meme-10.jpg',
+  'meme-11': '/meme-11.jpg',
+  'meme-12': '/meme-12.jpg',
+  'meme-13': '/meme-13.jpg',
+  'meme-14': '/meme-14.jpg',
+  'meme-15': '/meme-15.jpg',
+};
 
 /** Session timing beyond the capture loop. */
 export const DECK_TIMEOUT_MS = 60_000; // nobody picks a deck → back to the attract screen

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { BOOK_PRICE_TAG, DECKS, MAX_RETAKES, type Deck, type DeckId } from '../booth/config';
+import { BOOK_PRICE_TAG, DECKS, MAX_RETAKES, MEME_CAPTION, MEME_IMAGES, SHOTS, type Deck, type DeckId } from '../booth/config';
 import { FRAME_SETS, GACHA_SETS, frameById, framesInSet, setById, type FrameSet, type FrameStyle, type SetId } from '../booth/gacha';
 import type { GuestIntent } from '../shared/link-protocol';
 import type { GuestView } from '../shared/view';
@@ -37,6 +37,7 @@ export function GuestScreen({ view, preview, onIntent }: Props) {
         />
       )}
       {view.phase === 'capturing' && <Capture view={view} preview={preview} />}
+      {view.phase === 'deck' && <MemePreload />}
       {view.phase === 'select' && <Select view={view} onIntent={onIntent} />}
       {view.phase === 'reveal' && <Reveal view={view} />}
       {view.phase === 'offer' && <BookOffer key={view.offerId} view={view} onIntent={onIntent} />}
@@ -460,7 +461,7 @@ function DeckPicker({
               <button type="button" className={`gs-card ${deck.free ? 'gs-card--free' : ''}`} onClick={() => onPick(id)}>
                 <span className="gs-card__label">{deck.label}</span>
                 {/* Spans, not a list: buttons may only contain inline content. */}
-                {deck.free ? (
+                {deck.blurb ? (
                   <span className="gs-card__poses gs-card__poses--free">
                     {(deck.blurb ?? []).map((line) => (
                       <span key={line}>{line}</span>
@@ -474,7 +475,11 @@ function DeckPicker({
                   </span>
                 )}
                 <span className="gs-card__more">
-                  {deck.free ? 'You’re in charge' : `…and ${deck.prompts.length - CARD_POSES} more random poses`}
+                  {deck.free
+                    ? 'You’re in charge'
+                    : deck.blurb
+                      ? `${SHOTS - 1} random memes out of ${deck.prompts.length}`
+                      : `…and ${deck.prompts.length - CARD_POSES} more random poses`}
                 </span>
               </button>
             </li>
@@ -492,6 +497,14 @@ function useNewFlash(flashId: number): number | null {
   return flashId !== first.current ? flashId : null;
 }
 
+/** Loads the Memes reference photos while the guest is still choosing, so they show at once later. */
+function MemePreload() {
+  useEffect(() => {
+    for (const src of Object.values(MEME_IMAGES)) new Image().src = src;
+  }, []);
+  return null;
+}
+
 function Capture({ view, preview }: { view: GuestView; preview: ReactNode }) {
   const flash = useNewFlash(view.flashId);
   return (
@@ -505,6 +518,9 @@ function Capture({ view, preview }: { view: GuestView; preview: ReactNode }) {
           </div>
         )}
         {flash !== null && <div className="gs-flash" key={flash} />}
+        {view.prompt && MEME_IMAGES[view.prompt] && (
+          <img className="gs-meme" src={MEME_IMAGES[view.prompt]} alt="" draggable={false} />
+        )}
       </div>
       {view.prompt && (
         <div className="gs-prompt" key={`${view.retakeOf ?? 'shot'}-${view.shot}`}>
@@ -519,7 +535,7 @@ function Capture({ view, preview }: { view: GuestView; preview: ReactNode }) {
               </>
             )}
           </span>
-          <p className="tag">{view.prompt}</p>
+          <p className="tag">{MEME_IMAGES[view.prompt] ? MEME_CAPTION : view.prompt}</p>
         </div>
       )}
       <div className="gs-progress paper" aria-label={`Photo ${Math.min(view.shot + 1, view.totalShots)} of ${view.totalShots}`}>

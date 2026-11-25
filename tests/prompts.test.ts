@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DECKS, LAST_PROMPT, SHOTS, type Deck, type DeckId } from '../src/booth/config';
+import { DECKS, LAST_PROMPT, MEME_IMAGES, SHOTS, type Deck, type DeckId } from '../src/booth/config';
 import { PromptBag } from '../src/booth/prompts';
 
 function mulberry32(seed: number) {
@@ -16,13 +16,17 @@ const POOLED = (Object.keys(DECKS) as DeckId[]).filter((id) => !(DECKS[id] as De
 
 describe('prompt pools', () => {
   it('has 15 different prompts in every gaya, without "Bebas" in the pool', () => {
-    expect(POOLED).toEqual(['BESTIE', 'COUPLE', 'KULIAH']);
-    expect(POOLED.map((id) => DECKS[id].prompts.length)).toEqual([15, 15, 15]);
+    expect(POOLED).toEqual(['BESTIE', 'COUPLE', 'KULIAH', 'MEMES']);
+    expect(POOLED.map((id) => DECKS[id].prompts.length)).toEqual([15, 15, 15, 15]);
     for (const id of POOLED) {
       const pool = DECKS[id].prompts;
       expect(new Set(pool).size).toBe(pool.length);
       expect(pool.some((p) => p.startsWith('Bebas'))).toBe(false);
     }
+  });
+
+  it('has a reference photo for every Memes prompt', () => {
+    for (const p of DECKS.MEMES.prompts) expect(MEME_IMAGES[p]).toMatch(/^\/meme-\d\d\.jpg$/);
   });
 
   it('has no pointing prompts (they make no sense on the print)', () => {

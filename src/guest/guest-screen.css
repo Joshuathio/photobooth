@@ -777,6 +777,21 @@
 .gs-capture__live > video.is-mirrored {
   transform: scaleX(-1);
 }
+.gs-meme {
+  position: absolute;
+  right: 22px;
+  bottom: 22px;
+  max-width: 250px;
+  max-height: 300px;
+  object-fit: contain;
+  border: 8px solid var(--cream);
+  border-radius: 4px;
+  background: var(--cream);
+  box-shadow: 0 10px 24px rgba(34, 52, 92, 0.4);
+  transform: rotate(3deg);
+  pointer-events: none;
+  z-index: 2;
+}
 .gs-prompt {
   position: absolute;
   left: 50%;

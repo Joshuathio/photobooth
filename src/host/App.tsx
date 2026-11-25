@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { BOOK_PRICE, DECKS, type DeckId } from '../booth/config';
+import { BOOK_PRICE, DECKS, MEME_CAPTION, MEME_IMAGES, type DeckId } from '../booth/config';
 import { FRAMES, frameById, setById, type SetId } from '../booth/gacha';
 import { hasCloud } from '../booth/settings';
 import { GuestScreen, STAGE_H, STAGE_W } from '../guest/GuestScreen';
@@ -112,7 +112,7 @@ function CameraPanel({ s, ctl }: PanelProps) {
       />
       {s.cameraMessage && <div className="cam__message">{s.cameraMessage}</div>}
       {s.cameraInfo && <span className="cam__info">{s.cameraInfo}</span>}
-      {v.phase === 'capturing' && v.prompt && <div className="cam__prompt">{v.prompt}</div>}
+      {v.phase === 'capturing' && v.prompt && <div className="cam__prompt">{MEME_IMAGES[v.prompt] ? MEME_CAPTION : v.prompt}</div>}
       {v.phase === 'capturing' && v.count !== null && (
         <div className="cam__count sticker" key={`${v.shot}-${v.count}`}>
           {v.count}
