@@ -1,12 +1,5 @@
 import { applyPalette, GIFEncoder, quantize } from 'gifenc';
 import {
-  BIG_CELL_H,
-  BIG_CELL_W,
-  BIG_COLS,
-  BIG_FOOTER_X,
-  BIG_H,
-  BIG_ROWS,
-  BIG_W,
   CELL_H,
   CELL_W,
   COLORS,
@@ -28,7 +21,6 @@ import type { FrameStyle } from './gacha';
 import { containRect, coverCrop } from './layout';
 
 export interface StripInfo {
-  eventName: string;
   date: Date;
 }
 
@@ -98,33 +90,6 @@ export function ensureFrameArt(frame: FrameStyle): Promise<HTMLImageElement | nu
 
 function artFor(frame: FrameStyle): HTMLImageElement | null {
   return frame.art ? (artImages.get(frame.art.sheet) ?? null) : null;
-}
-
-/** Colour for small text on a frame: the outline colour where the lettering is outlined. */
-function solidInk(frame: FrameStyle): string {
-  return frame.outline ?? frame.ink;
-}
-
-/** Text in the frame's lettering style: filled, with the outline behind it when the frame has one. */
-function letter(
-  ctx: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  font: string,
-  fill: string,
-  outline: string | undefined,
-  maxW: number,
-): void {
-  ctx.font = font;
-  if (outline) {
-    ctx.strokeStyle = outline;
-    ctx.lineWidth = Math.max(4, parseInt(font.split(' ')[1], 10) * 0.16);
-    ctx.lineJoin = 'round';
-    ctx.strokeText(text, x, y, maxW);
-  }
-  ctx.fillStyle = fill;
-  ctx.fillText(text, x, y, maxW);
 }
 
 /** Pattern repeat on the print: 60 px ≈ 5 mm at 300 dpi. */
@@ -218,7 +183,7 @@ function drawStrip(
     drawCover(ctx, shot, x, y, CELL_W, CELL_H);
   });
 
-  // Footer: the Dearly logo, date, event and the session code for the gallery.
+  // Footer: the Dearly logo, date and the session code for the gallery.
   const cx = ox + STRIP_W / 2;
   const maxW = STRIP_W - 2 * MARGIN_X;
   const date = info.date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -226,7 +191,6 @@ function drawStrip(
     ['Dearly', frame.ink, `400 62px ${FONTS.script}`, 82],
     ['Photobooth', frame.accent, `400 32px ${FONTS.chunky}`, 132],
     [date, frame.dim, `400 22px ${FONTS.body}`, 174],
-    [info.eventName, frame.dim, `400 20px ${FONTS.body}`, 206],
   ];
   ctx.textAlign = 'center';
   for (const [text, color, font, dy] of lines) {
@@ -247,28 +211,6 @@ export function buildStrip(
   return c;
 }
 
-/**
- * Whole-sheet frame (the BINUS ones): a 4R printed uncut, photo i in row i of
- * both columns, the designer's PNG on top. The art must be loaded first
- * (ensureFrameArt); without it the photos still print on the frame colour.
- */
-export function buildGridSheet(shots: HTMLCanvasElement[], frame: FrameStyle): HTMLCanvasElement {
-  const [c, ctx] = canvas(SHEET_W, SHEET_H);
-  ctx.fillStyle = frame.bg;
-  ctx.fillRect(0, 0, SHEET_W, SHEET_H);
-  const grid = frame.grid;
-  if (grid) {
-    grid.rows.forEach(([y0, y1], i) => {
-      const shot = shots[i];
-      if (!shot) return;
-      for (const [x0, x1] of grid.cols) drawCover(ctx, shot, x0, y0, x1 - x0, y1 - y0);
-    });
-  }
-  const art = artFor(frame);
-  if (art) ctx.drawImage(art, 0, 0, SHEET_W, SHEET_H);
-  return c;
-}
-
 /** Small 3:2 JPEG of one shot for the tablet's selection screen. */
 export function shotThumbnail(shot: HTMLCanvasElement, width = 360): string {
   const h = Math.round(width / 1.5);
@@ -277,80 +219,7 @@ export function shotThumbnail(shot: HTMLCanvasElement, width = 360): string {
   return c.toDataURL('image/jpeg', 0.72);
 }
 
-/**
- * Big print, upright: a landscape 1800 × 1200 canvas with two identical halves
- * (top and bottom). Each half has the 8 shots in 4 columns × 2 rows of
- * 3.5 × 2.55 cm cells and a narrow footer on the right. Use this for screens;
- * printForBig() turns it for the printer.
- */
-export function buildBigPrint(
-  shots: HTMLCanvasElement[],
-  info: StripInfo,
-  frame: FrameStyle,
-): HTMLCanvasElement {
-  const [c, ctx] = canvas(BIG_W, BIG_H);
-  paintFrame(ctx, frame, 0, 0, BIG_W, BIG_H);
-  const halfH = BIG_H / 2;
-  const date = info.date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-  const fx = BIG_FOOTER_X + (BIG_W - BIG_FOOTER_X) / 2;
-  const maxW = BIG_W - BIG_FOOTER_X - 14;
-
-  for (const oy of [0, halfH]) {
-    shots.forEach((shot, i) => {
-      if (i >= BIG_COLS * BIG_ROWS) return;
-      const x = (i % BIG_COLS) * BIG_CELL_W;
-      const y = oy + Math.floor(i / BIG_COLS) * BIG_CELL_H;
-      drawCover(ctx, shot, x, y, BIG_CELL_W, BIG_CELL_H);
-    });
-
-    // Footer column, stacked and centred in this half.
-    ctx.textAlign = 'center';
-    if (frame.art) {
-      // Same hand lettering as the strip art: "with love, Dearly".
-      const ink = solidInk(frame);
-      letter(ctx, 'with love,', fx, oy + 206, `400 24px ${FONTS.script}`, frame.ink, frame.outline, maxW);
-      letter(ctx, 'Dearly', fx, oy + 250, `400 40px ${FONTS.script}`, frame.ink, frame.outline, maxW);
-      const small: [string, string, number][] = [
-        [date, `400 15px ${FONTS.body}`, 306],
-        [info.eventName, `400 12px ${FONTS.body}`, 328],
-      ];
-      ctx.fillStyle = ink;
-      for (const [text, font, dy] of small) {
-        if (!text) continue;
-        ctx.font = font;
-        ctx.fillText(text, fx, oy + dy, maxW);
-      }
-      continue;
-    }
-    const lines: [string, string, string, number][] = [
-      ['Dearly', frame.ink, `400 34px ${FONTS.script}`, 232],
-      ['Photobooth', frame.accent, `400 16px ${FONTS.chunky}`, 264],
-      [date, frame.dim, `400 15px ${FONTS.body}`, 306],
-      [info.eventName, frame.dim, `400 12px ${FONTS.body}`, 328],
-    ];
-    for (const [text, color, font, dy] of lines) {
-      if (!text) continue;
-      ctx.fillStyle = color;
-      ctx.font = font;
-      ctx.fillText(text, fx, oy + dy, maxW);
-    }
-  }
-  return c;
-}
-
-/**
- * The big print turned 90° onto the portrait 4x6 sheet the printer expects,
- * so its 2x6 cut runs between the two identical halves.
- */
-export function printForBig(big: HTMLCanvasElement): HTMLCanvasElement {
-  const [c, ctx] = canvas(SHEET_W, SHEET_H);
-  ctx.translate(SHEET_W, 0);
-  ctx.rotate(Math.PI / 2);
-  ctx.drawImage(big, 0, 0);
-  return c;
-}
-
-/** Small JPEG of the strip (or big sheet) for the tablet's result screen. */
+/** Small JPEG of the strip for the tablet's result screen. */
 export function stripThumbnail(strip: HTMLCanvasElement, width = 300): string {
   const h = Math.round((strip.height * width) / strip.width);
   const [c, ctx] = canvas(width, h);
@@ -386,7 +255,7 @@ function drawGingham(ctx: CanvasRenderingContext2D, w: number, h: number, size: 
   ctx.restore();
 }
 
-/** 9:16 story image: the strip (or big sheet), slightly tilted, on the Dearly gingham. */
+/** 9:16 story image: the strip, slightly tilted, on the Dearly gingham. */
 export function buildStory(print: HTMLCanvasElement): HTMLCanvasElement {
   const [c, ctx] = canvas(STORY_W, STORY_H);
   drawGingham(ctx, STORY_W, STORY_H, 150);

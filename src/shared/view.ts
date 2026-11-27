@@ -1,19 +1,15 @@
-import { DECKS, MAX_RETAKES, OFFER_MS, RESULT_MS, SELECT_TIMEOUT_MS, SHOTS, STRIP_SHOTS, type DeckId } from '../booth/config';
-import type { FrameId, SetId } from '../booth/gacha';
+import { DECKS, MAX_RETAKES, RESULT_MS, SELECT_TIMEOUT_MS, SHOTS, STRIP_SHOTS, type DeckId } from '../booth/config';
+import type { FrameId } from '../booth/gacha';
 
 /**
  * Everything the guest screen needs to draw itself. The Mac sends this to the
  * tablet on every change, and renders the same thing in its tablet mirror.
  */
-export type Phase = 'idle' | 'set' | 'deck' | 'capturing' | 'select' | 'reveal' | 'offer' | 'result';
+export type Phase = 'idle' | 'frame' | 'deck' | 'capturing' | 'select' | 'reveal' | 'result';
 
-/** Standard: 4 chosen photos on a strip (printed twice, cut). Big: all 8 on one uncut sheet. */
-export type PrintPackage = 'standard' | 'big';
 
 export interface GuestView {
   phase: Phase;
-  /** Frame set the guest picked (highlighted on the set screen, then fixed for the session). */
-  set: SetId | null;
   deck: DeckId | null;
   /** Index of the current shot (0-based) while capturing. */
   shot: number;
@@ -23,6 +19,7 @@ export interface GuestView {
   count: number | null;
   /** Increments on every shot so screens can replay the flash. */
   flashId: number;
+  /** The frame the guest picked (highlighted on the frame screen, then fixed for the session). */
   frame: FrameId | null;
   code: string | null;
   /** Gallery link for the QR code. */
@@ -39,17 +36,10 @@ export interface GuestView {
   selected: number[];
   /** How many photos go on the strip. */
   pickCount: number;
-  pkg: PrintPackage;
-  /** Guest asked for the big print; waiting for the operator to confirm payment. */
-  upgradePending: boolean;
-  /** Bumps each time the book offer opens, so the offer screen starts fresh. */
-  offerId: number;
   /** Retakes the guest still has this session. */
   retakesLeft: number;
   /** While capturing: the shot being retaken, or null during the normal 8 shots. */
   retakeOf: number | null;
-  /** A retake waiting for the guest to keep the old or the new photo (thumbnail data URLs). */
-  compare: { index: number; old: string; fresh: string } | null;
   /** The shot just replaced by a retake, highlighted on the select screen. */
   freshShot: number | null;
   /** Length of the countdown shown on this screen, or null when there is none. */
@@ -62,7 +52,6 @@ export interface GuestView {
 
 export const IDLE_VIEW: GuestView = {
   phase: 'idle',
-  set: null,
   deck: null,
   shot: 0,
   totalShots: SHOTS,
@@ -78,12 +67,8 @@ export const IDLE_VIEW: GuestView = {
   thumbs: [],
   selected: [],
   pickCount: STRIP_SHOTS,
-  pkg: 'standard',
-  upgradePending: false,
-  offerId: 0,
   retakesLeft: 0,
   retakeOf: null,
-  compare: null,
   freshShot: null,
   timerMs: null,
   timerId: 0,
@@ -92,12 +77,11 @@ export const IDLE_VIEW: GuestView = {
 
 export const PHASE_LABELS: Record<Phase, string> = {
   idle: 'Layar awal',
-  set: 'Pilih set',
+  frame: 'Pilih frame',
   deck: 'Pilih gaya',
   capturing: 'Foto',
   select: 'Pilih foto',
-  reveal: 'Gacha',
-  offer: 'Buku',
+  reveal: 'Menyiapkan',
   result: 'Hasil + QR',
 };
 
@@ -108,18 +92,15 @@ export function sampleView(phase: Phase): GuestView {
     ...IDLE_VIEW,
     phase,
     preview: true,
-    set: phase === 'idle' ? null : 'A',
-    deck: phase === 'idle' || phase === 'set' ? null : deck,
+    deck: phase === 'idle' || phase === 'frame' || phase === 'deck' ? null : deck,
     shot: phase === 'capturing' ? 1 : 0,
     prompt: phase === 'capturing' ? DECKS[deck].prompts[1] : null,
     count: phase === 'capturing' ? 3 : null,
-    frame: phase === 'reveal' || phase === 'offer' || phase === 'result' ? 'a4' : null,
-    code: phase === 'offer' || phase === 'result' ? 'K7XP2Q' : null,
-    selected: phase === 'select' ? [0, 2, 5] : phase === 'offer' ? [0, 2, 5, 7] : [],
-    offerId: phase === 'offer' ? Date.now() : 0,
+    frame: phase === 'idle' || phase === 'frame' ? null : 'a4',
+    code: phase === 'result' ? 'K7XP2Q' : null,
+    selected: phase === 'select' ? [0, 2, 5] : [],
     retakesLeft: phase === 'select' ? MAX_RETAKES : 0,
-    timerMs: phase === 'select' ? SELECT_TIMEOUT_MS : phase === 'offer' ? OFFER_MS : phase === 'result' ? RESULT_MS : null,
-    timerId: phase === 'offer' ? Date.now() : 0,
+    timerMs: phase === 'select' ? SELECT_TIMEOUT_MS : phase === 'result' ? RESULT_MS : null,
     link: phase === 'result' ? 'https://example.com/gallery.html?s=K7XP2Q' : null,
   };
 }

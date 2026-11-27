@@ -9,7 +9,6 @@ export interface Settings {
   cloudName: string;
   uploadPreset: string;
   galleryUrl: string;
-  eventName: string;
 }
 
 const KEY = 'photobooth.settings.v1';
@@ -21,7 +20,6 @@ export const DEFAULT_SETTINGS: Settings = {
   cloudName: DEFAULT_CLOUD_NAME,
   uploadPreset: '',
   galleryUrl: '',
-  eventName: 'BINUS UNIVERSITY',
 };
 
 export function loadSettings(): Settings {

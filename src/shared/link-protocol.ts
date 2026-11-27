@@ -1,5 +1,5 @@
 import type { DeckId } from '../booth/config';
-import type { SetId } from '../booth/gacha';
+import type { FrameId } from '../booth/gacha';
 import type { GuestView } from './view';
 
 /** WebSocket path on the dev server that connects the Mac and the tablet. */
@@ -14,29 +14,20 @@ export type Role = 'host' | 'guest' | 'preview';
 /** Taps on the guest screen, sent to the Mac. */
 export type GuestIntent =
   | { type: 'start' }
-  /** Highlight a frame set on the set screen. */
-  /** `photos` picks the 3- or 4-photo frame of a set with no gacha (BINUS). */
-  | { type: 'set'; set: SetId; photos?: 3 | 4 }
-  /** Use the highlighted set and go on to the pose picker. */
-  | { type: 'confirmSet' }
+  /** Highlight a frame on the frame screen. */
+  | { type: 'frame'; frame: FrameId }
+  /** Use the highlighted frame and go on to the pose picker. */
+  | { type: 'confirmFrame' }
   | { type: 'deck'; deck: DeckId }
-  /** From the pose picker back to the set screen. */
+  /** From the pose picker back to the frame screen. */
   | { type: 'back' }
   | { type: 'cancel' }
   /** Pick or unpick a photo on the selection screen. */
   | { type: 'toggle'; index: number }
   /** Retake one photo (same prompt). Uses one of the session's retakes. */
   | { type: 'retake'; index: number }
-  /** After a retake: keep the old photo or use the new one. */
-  | { type: 'keepRetake'; use: 'old' | 'new' }
   /** Done picking: print the strip. */
   | { type: 'confirm' }
-  /** Wants the big print with all photos (operator confirms payment). */
-  | { type: 'upgrade' }
-  /** Changed their mind about the big print. */
-  | { type: 'cancelUpgrade' }
-  /** "Next" on the book info screen: on to the QR. */
-  | { type: 'nextFromOffer' }
   | { type: 'finish' };
 
 export type LinkMessage =

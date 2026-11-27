@@ -1,46 +1,34 @@
 import {
   AFTER_SHOT_MS,
-  COMPARE_THUMB_W,
   COUNTDOWN_FROM,
   DECK_TIMEOUT_MS,
   DECKS,
   MAX_RETAKES,
-  OFFER_MS,
   PROMPT_MS,
   RESULT_MS,
-  RETAKE_CHOOSE_MS,
   REVEAL_MS,
   SELECT_TIMEOUT_MS,
   SHOTS,
-  STRIP_SHOTS,
   type DeckId,
 } from './config';
-import { fixedFrame, framesInSet, isSetId, roll, setById, type FrameId, type FrameStyle, type SetId } from './gacha';
+import { FRAMES, frameById, isFrameId, type FrameId } from './gacha';
 import { PromptBag } from './prompts';
 import { Cancelled, sleep as realSleep } from './timing';
 import type { GuestIntent } from '../shared/link-protocol';
-import { IDLE_VIEW, type GuestView, type PrintPackage } from '../shared/view';
+import { IDLE_VIEW, type GuestView } from '../shared/view';
 
 export interface DeliverInput<Shot> {
   code: string;
   /** Every shot taken, in order. */
   shots: Shot[];
-  /** Indexes of the shots on the strip (standard) or all of them (big). */
+  /** Indexes of the shots on the strip. */
   chosen: number[];
-  pkg: PrintPackage;
   frame: FrameId;
 }
 
 export interface DeliverResult {
   link: string | null;
   stripThumb: string | null;
-}
-
-/** The book keychain file: every shot, in the frame the guest rolled. */
-export interface BookInput<Shot> {
-  code: string;
-  shots: Shot[];
-  frame: FrameId;
 }
 
 /** Everything the session needs from the outside world, injected so it can be tested. */
@@ -60,7 +48,7 @@ const ALL_SHOTS = Array.from({ length: SHOTS }, (_, i) => i);
 
 /**
  * The booth flow as a small state machine:
- * idle → set → deck → capturing → select → reveal → offer → result → idle.
+ * idle → frame → deck → capturing → select → reveal → result → idle.
  * From select, a retake goes capturing (one shot) → select again.
  * Both the Mac console and the tablet just render `view`.
  */
@@ -70,12 +58,8 @@ export class BoothSession<Shot = unknown> {
   private run = 0;
   /** The session waiting on the selection screen. */
   private taken: { code: string; shots: Shot[]; plan: string[]; run: number } | null = null;
-  /** A retaken photo waiting for the guest to pick it or keep the old one. */
-  private pendingRetake: { index: number; shot: Shot } | null = null;
   /** Deals each session's poses so back-to-back groups get different ones. */
   private readonly promptBag: PromptBag;
-  /** The finished session on the book info screen, until the result screen opens. */
-  private offering: { run: number; result: DeliverResult } | null = null;
   private readonly sleep: (ms: number, signal: AbortSignal) => Promise<void>;
 
   constructor(
@@ -107,48 +91,39 @@ export class BoothSession<Shot = unknown> {
     this.sleep(ms, signal).then(then, () => {});
   }
 
-  /** Attract screen → set picker. */
+  /** Attract screen → frame picker. */
   begin(): void {
     if (this.current.phase !== 'idle') return;
     this.current = { ...IDLE_VIEW, flashId: this.current.flashId };
-    this.showPicker('set');
+    this.showPicker('frame');
   }
 
-  /** Set or pose picker, with a timeout back to the attract screen if nobody taps. */
-  private showPicker(phase: 'set' | 'deck'): void {
+  /** Frame or pose picker, with a timeout back to the attract screen if nobody taps. */
+  private showPicker(phase: 'frame' | 'deck'): void {
     const signal = this.nextPhase();
-    this.set({ phase });
+    this.set({ phase, timerMs: DECK_TIMEOUT_MS, timerId: this.current.timerId + 1 });
     this.after(DECK_TIMEOUT_MS, signal, () => {
-      this.deps.log(`Tidak ada yang pilih ${phase === 'set' ? 'set' : 'gaya'} — kembali ke layar awal`);
+      this.deps.log(`Tidak ada yang pilih ${phase === 'frame' ? 'frame' : 'gaya'} — kembali ke layar awal`);
       this.reset();
     });
   }
 
-  /**
-   * Highlight a set on the set screen. The guest still has to confirm it.
-   * A set with no gacha (BINUS) comes with its photo count: 3 or 4.
-   */
-  pickSet(set: SetId, photos?: number): void {
-    if (this.current.phase !== 'set' || !isSetId(set)) return;
-    if (setById(set).fixed) {
-      const counts: number[] = framesInSet(set).map((f) => f.photos ?? STRIP_SHOTS);
-      const count = photos !== undefined && counts.includes(photos) ? photos : Math.max(...counts);
-      this.set({ set, pickCount: count });
-    } else {
-      this.set({ set, pickCount: STRIP_SHOTS });
-    }
+  /** Highlight a frame on the frame screen. The guest still has to confirm it. */
+  pickFrame(frame: FrameId): void {
+    if (this.current.phase !== 'frame' || !isFrameId(frame)) return;
+    this.set({ frame });
   }
 
-  /** Highlighted set → pose picker. */
-  confirmSet(): void {
-    if (this.current.phase !== 'set' || !this.current.set) return;
+  /** Highlighted frame → pose picker. */
+  confirmFrame(): void {
+    if (this.current.phase !== 'frame' || !this.current.frame) return;
     this.showPicker('deck');
   }
 
-  /** Pose picker → back to the set screen, keeping the set highlighted. */
-  backToSet(): void {
+  /** Pose picker → back to the frame screen, keeping the frame highlighted. */
+  backToFrame(): void {
     if (this.current.phase !== 'deck') return;
-    this.showPicker('set');
+    this.showPicker('frame');
   }
 
   /** Deck picked → take the photos, then show the selection screen. */
@@ -158,7 +133,7 @@ export class BoothSession<Shot = unknown> {
   }
 
   /**
-   * Mac shortcut (Space): start, then confirm the set (Set A if none is
+   * Mac shortcut (Space): start, then confirm the frame (the first one if none is
    * highlighted), then pick the default deck.
    */
   quickStart(defaultDeck: DeckId): void {
@@ -166,9 +141,9 @@ export class BoothSession<Shot = unknown> {
       case 'idle':
         this.begin();
         break;
-      case 'set':
-        if (!this.current.set) this.pickSet('A');
-        this.confirmSet();
+      case 'frame':
+        if (!this.current.frame) this.pickFrame(FRAMES[0].id);
+        this.confirmFrame();
         break;
       case 'deck':
         void this.chooseDeck(defaultDeck);
@@ -181,20 +156,20 @@ export class BoothSession<Shot = unknown> {
       case 'start':
         this.begin();
         break;
-      case 'set':
-        this.pickSet(intent.set, intent.photos);
+      case 'frame':
+        this.pickFrame(intent.frame);
         break;
-      case 'confirmSet':
-        this.confirmSet();
+      case 'confirmFrame':
+        this.confirmFrame();
         break;
       case 'deck':
         void this.chooseDeck(DECKS[intent.deck] ? intent.deck : defaultDeck);
         break;
       case 'back':
-        this.backToSet();
+        this.backToFrame();
         break;
       case 'cancel':
-        if (this.current.phase === 'set' || this.current.phase === 'deck') this.reset();
+        if (this.current.phase === 'frame' || this.current.phase === 'deck') this.reset();
         break;
       case 'toggle':
         this.toggle(intent.index);
@@ -202,20 +177,8 @@ export class BoothSession<Shot = unknown> {
       case 'retake':
         void this.retake(intent.index);
         break;
-      case 'keepRetake':
-        this.keepRetake(intent.use === 'old' ? 'old' : 'new');
-        break;
       case 'confirm':
         void this.confirm();
-        break;
-      case 'upgrade':
-        this.requestUpgrade();
-        break;
-      case 'cancelUpgrade':
-        this.declineUpgrade();
-        break;
-      case 'nextFromOffer':
-        this.nextFromOffer();
         break;
       case 'finish':
         if (this.current.phase === 'result') this.reset();
@@ -228,8 +191,6 @@ export class BoothSession<Shot = unknown> {
     this.nextPhase();
     this.run++;
     this.taken = null;
-    this.pendingRetake = null;
-    this.offering = null;
     this.current = { ...IDLE_VIEW, flashId: this.current.flashId };
     this.onChange(this.current);
   }
@@ -238,7 +199,7 @@ export class BoothSession<Shot = unknown> {
 
   toggle(index: number): void {
     const v = this.current;
-    if (v.phase !== 'select' || v.upgradePending || v.compare || !Number.isInteger(index)) return;
+    if (v.phase !== 'select' || !Number.isInteger(index)) return;
     if (index < 0 || index >= SHOTS) return;
     if (v.selected.includes(index)) {
       this.set({ selected: v.selected.filter((i) => i !== index) });
@@ -247,49 +208,25 @@ export class BoothSession<Shot = unknown> {
     }
   }
 
-  /** Guest is done picking. Only works with exactly pickCount photos chosen (4, or 3/4 for BINUS). */
+  /** Guest is done picking. Only works with exactly pickCount photos chosen (4). */
   confirm(): Promise<void> {
     const v = this.current;
-    if (v.phase !== 'select' || v.upgradePending || v.compare || v.selected.length !== v.pickCount) {
+    if (v.phase !== 'select' || v.selected.length !== v.pickCount) {
       return Promise.resolve();
     }
-    return this.finish('standard', v.selected);
-  }
-
-  /** Guest wants the big print. Waits for the operator to confirm payment. */
-  requestUpgrade(): void {
-    if (this.current.phase !== 'select' || this.current.upgradePending || this.current.compare) return;
-    // The BINUS frame is its own sheet; the big print is for the gacha sets.
-    if (this.current.set && setById(this.current.set).fixed) return;
-    this.armSelectTimeout(); // the request lapses if the operator doesn't answer in time
-    this.deps.log('Tamu minta versi besar — konfirmasi pembayaran di Mac', 'ok');
-    this.set({ upgradePending: true });
-  }
-
-  /** Operator: payment received, print all photos on the big sheet. */
-  approveUpgrade(): Promise<void> {
-    if (this.current.phase !== 'select') return Promise.resolve();
-    this.deps.log('Versi besar dikonfirmasi');
-    return this.finish('big', ALL_SHOTS);
-  }
-
-  /** Operator declined, or the guest changed their mind: back to picking 4. */
-  declineUpgrade(): void {
-    if (this.current.phase !== 'select' || !this.current.upgradePending) return;
-    this.set({ upgradePending: false });
-    this.armSelectTimeout();
+    return this.finish(v.selected);
   }
 
   /* ---------- Retake ---------- */
 
   /**
    * Retake one photo from the select screen with the same prompt and countdown.
-   * The new photo then waits for the guest to keep it or the old one.
+   * The new photo replaces the old one straight away.
    */
   async retake(index: number): Promise<void> {
     const v = this.current;
     const taken = this.taken;
-    if (v.phase !== 'select' || v.upgradePending || v.compare || !taken) return;
+    if (v.phase !== 'select' || !taken) return;
     if (!Number.isInteger(index) || index < 0 || index >= SHOTS || v.retakesLeft <= 0) return;
     const signal = this.nextPhase();
     const run = this.run;
@@ -326,35 +263,11 @@ export class BoothSession<Shot = unknown> {
     }
     if (run !== this.run || this.taken !== taken) return;
 
-    this.pendingRetake = { index, shot };
-    // The compare screen shows both photos big, so they get bigger thumbnails than the grid.
-    const old = taken.shots[index];
-    this.backToSelect({
-      compare: {
-        index,
-        old: old ? this.deps.thumb(old, COMPARE_THUMB_W) : (this.current.thumbs[index] ?? ''),
-        fresh: this.deps.thumb(shot, COMPARE_THUMB_W),
-      },
-    });
-    const choose = this.nextPhase();
-    this.set({ timerMs: RETAKE_CHOOSE_MS, timerId: this.current.timerId + 1 });
-    this.after(RETAKE_CHOOSE_MS, choose, () => this.keepRetake('new'));
-  }
-
-  /** The guest picked which photo to keep after a retake (or the time ran out: the new one). */
-  keepRetake(use: 'old' | 'new'): void {
-    const v = this.current;
-    const pending = this.pendingRetake;
-    const taken = this.taken;
-    if (v.phase !== 'select' || !v.compare || !pending || !taken) return;
-    this.pendingRetake = null;
-    const thumbs = [...v.thumbs];
-    if (use === 'new') {
-      taken.shots[pending.index] = pending.shot;
-      thumbs[pending.index] = this.deps.thumb(pending.shot);
-    }
-    this.deps.log(use === 'new' ? `Foto ${pending.index + 1} diganti` : `Foto ${pending.index + 1}: tetap yang lama`);
-    this.set({ compare: null, thumbs, freshShot: use === 'new' ? pending.index : null });
+    taken.shots[index] = shot;
+    const thumbs = [...this.current.thumbs];
+    thumbs[index] = this.deps.thumb(shot);
+    this.deps.log(`Foto ${index + 1} diganti`);
+    this.backToSelect({ thumbs, freshShot: index });
     this.armSelectTimeout();
   }
 
@@ -370,33 +283,9 @@ export class BoothSession<Shot = unknown> {
     this.set({ phase: 'select', retakeOf: null, prompt: null, count: null, shot: SHOTS, ...patch });
   }
 
-  /* ---------- Book keychain offer ---------- */
+  /* ---------- Result ---------- */
 
-  /** "Next" on the book info screen: on to the result screen. */
-  nextFromOffer(): void {
-    if (this.current.phase !== 'offer') return;
-    this.showResult();
-  }
-
-  private showOffer(): void {
-    const signal = this.nextPhase();
-    this.set({
-      phase: 'offer',
-      busy: false,
-      offerId: this.current.offerId + 1,
-      timerMs: OFFER_MS,
-      timerId: this.current.timerId + 1,
-    });
-    this.after(OFFER_MS, signal, () => {
-      this.deps.log('Waktu penawaran buku habis');
-      this.showResult();
-    });
-  }
-
-  private showResult(): void {
-    const o = this.offering;
-    if (!o || o.run !== this.run) return;
-    this.offering = null;
+  private showResult(result: DeliverResult): void {
     const signal = this.nextPhase();
     this.set({
       phase: 'result',
@@ -404,9 +293,9 @@ export class BoothSession<Shot = unknown> {
       timerMs: RESULT_MS,
       timerId: this.current.timerId + 1,
       thumbs: [], // big payload; not needed any more
-      link: o.result.link,
-      stripThumb: o.result.stripThumb,
-      note: o.result.link ? null : 'QR belum tersedia. Tunjukkan kode ini ke operator ya.',
+      link: result.link,
+      stripThumb: result.stripThumb,
+      note: result.link ? null : 'QR belum tersedia. Tunjukkan kode ini ke operator ya.',
     });
     this.after(RESULT_MS, signal, () => {
       this.deps.log('Layar hasil selesai — kembali ke layar awal');
@@ -418,17 +307,12 @@ export class BoothSession<Shot = unknown> {
     const signal = this.nextPhase();
     this.set({ timerMs: SELECT_TIMEOUT_MS, timerId: this.current.timerId + 1 });
     this.after(SELECT_TIMEOUT_MS, signal, () => {
-      if (this.current.upgradePending) {
-        this.deps.log('Waktu habis, permintaan versi besar dibatalkan — kembali memilih foto');
-        this.declineUpgrade();
-        return;
-      }
       // Fill the strip with the earliest photos the guest didn't pick, then carry on.
       const picked = [...this.current.selected];
       const count = this.current.pickCount;
       for (const i of ALL_SHOTS) if (picked.length < count && !picked.includes(i)) picked.push(i);
       this.deps.log('Waktu pilih foto habis — dipilih otomatis');
-      void this.finish('standard', picked.sort((a, b) => a - b));
+      void this.finish(picked.sort((a, b) => a - b));
     });
   }
 
@@ -439,11 +323,11 @@ export class BoothSession<Shot = unknown> {
     const run = ++this.run;
     const code = this.deps.newCode();
     const shots: Shot[] = [];
-    const set = this.current.set ?? 'A';
-    this.deps.log(`Sesi ${code} · ${setById(set).label} · gaya ${DECKS[deck].label}`);
+    const frame = this.current.frame ?? FRAMES[0].id;
+    this.deps.log(`Sesi ${code} · ${frameById(frame).name} · gaya ${DECKS[deck].label}`);
     this.set({
       phase: 'capturing',
-      set,
+      frame,
       deck,
       code,
       shot: 0,
@@ -451,8 +335,8 @@ export class BoothSession<Shot = unknown> {
       count: null,
       retakesLeft: MAX_RETAKES,
       retakeOf: null,
-      compare: null,
       freshShot: null,
+      timerMs: null,
     });
     const plan = this.promptBag.draw(deck);
 
@@ -489,55 +373,36 @@ export class BoothSession<Shot = unknown> {
       count: null,
       thumbs: shots.map((s) => this.deps.thumb(s)),
       selected: [],
-      pkg: 'standard',
-      upgradePending: false,
     });
     this.armSelectTimeout();
   }
 
-  /** Chosen photos are final: roll the frame, reveal it, build and upload. */
-  private async finish(pkg: PrintPackage, chosen: number[]): Promise<void> {
+  /** Chosen photos are final: build and upload with the frame the guest picked. */
+  private async finish(chosen: number[]): Promise<void> {
     const taken = this.taken;
     if (!taken || this.current.phase !== 'select') return;
     this.taken = null;
-    this.pendingRetake = null;
     const { code, shots, run } = taken;
     const signal = this.nextPhase();
 
-    // Roll first: the frame is part of the print, so it has to be known before composing.
-    // Only frames from the set the guest picked are in the pool. BINUS has no roll:
-    // its frame is the one for the photo count the guest chose.
-    const setId = this.current.set ?? 'A';
-    let pick: FrameStyle;
-    if (setById(setId).fixed) {
-      pick = fixedFrame(setId, chosen.length);
-      this.deps.log(`Frame: ${setById(setId).label} · ${chosen.length} foto (cetak 4R utuh, jangan dipotong)`, 'ok');
-    } else {
-      pick = roll(framesInSet(setId), this.deps.random());
-      this.deps.log(`Gacha: ${pick.name} (${setById(pick.set).label}) · ${pkg === 'big' ? 'versi besar' : 'strip'}`, 'ok');
-    }
-    const frame = pick.id as FrameId;
+    const frame = this.current.frame ?? FRAMES[0].id;
+    this.deps.log(`Frame: ${frameById(frame).name}`, 'ok');
     this.set({
       phase: 'reveal',
       frame,
-      pkg,
       selected: chosen,
-      upgradePending: false,
-      compare: null,
       freshShot: null,
-      busy: true, // thumbs stay: the book offer shows them
+      busy: true,
     });
 
     const minReveal = this.sleep(REVEAL_MS, signal).catch(() => {});
-    const delivered = this.deps.deliver({ code, shots, chosen, pkg, frame }).catch((err: unknown) => {
+    const delivered = this.deps.deliver({ code, shots, chosen, frame }).catch((err: unknown) => {
       this.deps.log(`Gagal menyiapkan hasil: ${err instanceof Error ? err.message : String(err)}`, 'err');
       return { link: null, stripThumb: null } satisfies DeliverResult;
     });
     const [result] = await Promise.all([delivered, minReveal]);
 
     if (run !== this.run) return; // operator reset during the reveal
-    // The QR and strip are ready now, but the book info screen comes first.
-    this.offering = { run, result };
-    this.showOffer();
+    this.showResult(result);
   }
 }

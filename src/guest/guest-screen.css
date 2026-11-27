@@ -124,18 +124,6 @@
   padding: 0;
   object-fit: cover;
 }
-.gs-mini--prize {
-  --pat: 22px;
-  width: 138px;
-  height: 414px;
-  padding: 14px 14px 64px;
-  gap: 10px;
-  box-shadow:
-    0 0 0 6px var(--cream),
-    0 0 0 10px var(--red),
-    0 26px 60px rgba(34, 52, 92, 0.4);
-  transform: rotate(-5deg);
-}
 .gs-mini--result {
   --pat: 34px;
   width: 228px;
@@ -305,13 +293,6 @@
   align-items: center;
   gap: 10px;
 }
-.gs-odds__set {
-  font-size: 17px;
-  transform: rotate(-5deg);
-}
-.gs-odds li:nth-child(even) .gs-odds__set {
-  transform: rotate(4deg);
-}
 .gs-odds__strips {
   display: flex;
   gap: 5px;
@@ -392,9 +373,9 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .gs-attract__livetag i,
-  .gs-float__spark,
-  .gs-attract__photo,
-  .gs-odds {
+.gs-float__spark,
+.gs-attract__photo,
+.gs-odds {
     animation: none;
   }
 }
@@ -430,14 +411,6 @@
   text-align: center;
   font-size: 23px;
 }
-.gs-sets__cards {
-  flex: 1;
-  display: grid;
-  grid-auto-flow: column; /* one column per set, however many there are */
-  grid-auto-columns: 1fr;
-  gap: 44px;
-  padding: 0 40px;
-}
 .gs-setcard {
   position: relative;
   width: 100%;
@@ -460,42 +433,6 @@
     opacity 0.15s ease,
     filter 0.15s ease;
 }
-.gs-sets__cards li:nth-child(1) .gs-setcard {
-  transform: rotate(-1.2deg);
-}
-.gs-sets__cards li:nth-child(2) .gs-setcard {
-  transform: rotate(0.8deg) translateY(4px);
-}
-.gs-sets__cards li:nth-child(3) .gs-setcard {
-  transform: rotate(-0.6deg);
-}
-.gs-sets__cards li .gs-setcard.is-on {
-  transform: translateY(-6px) rotate(-1.5deg) scale(1.02);
-  box-shadow:
-    0 0 0 5px var(--cream),
-    0 0 0 10px var(--red),
-    0 22px 40px rgba(34, 52, 92, 0.3);
-  z-index: 2;
-}
-.gs-setcard.is-off {
-  opacity: 0.55;
-  filter: saturate(0.7);
-}
-.gs-setcard__tape {
-  top: -14px;
-  left: 50%;
-  width: 120px;
-  height: 34px;
-  transform: translateX(-50%) rotate(-3deg);
-}
-.gs-setcard__tag {
-  position: absolute;
-  top: 24px;
-  left: 20px;
-  z-index: 3;
-  font-size: 28px;
-  transform: rotate(-4deg);
-}
 .gs-setcard__check {
   position: absolute;
   top: -16px;
@@ -511,94 +448,6 @@
   box-shadow:
     0 0 0 4px var(--cream),
     0 6px 12px rgba(34, 52, 92, 0.3);
-}
-.gs-setcard__fan {
-  position: relative;
-  width: 100%;
-  flex: 1;
-  margin-top: 78px;
-}
-.gs-setstrip {
-  --pat: 12px;
-  position: absolute;
-  left: 50%;
-  top: 18px;
-  width: 92px;
-  height: 256px;
-  margin-left: -46px;
-  padding: 8px 8px 0;
-  border-radius: 3px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  background-color: var(--f-bg);
-  box-shadow:
-    0 0 0 1.5px rgba(58, 42, 38, 0.18),
-    0 8px 16px rgba(34, 52, 92, 0.25);
-}
-/* Designer artwork: the strip image itself (photo holes shown as a soft neutral). */
-.gs-setstrip--art {
-  padding: 0;
-  background: none;
-}
-.gs-setstrip--art em {
-  bottom: -12px;
-  width: 26px;
-  height: 26px;
-  font-size: 15px;
-}
-.gs-setstrip--art img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border-radius: 3px;
-}
-.gs-setstrip i {
-  height: 40px;
-  flex: none;
-  border-radius: 1px;
-  background: color-mix(in srgb, var(--f-ink) 26%, #fff 30%);
-}
-.gs-setstrip b {
-  flex: 1;
-  display: grid;
-  place-items: center;
-  font-family: var(--font-chunky);
-  font-weight: 400;
-  font-size: 21px;
-  color: var(--f-ink);
-}
-.gs-setstrip em {
-  position: absolute;
-  bottom: -14px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--cream);
-  color: var(--red);
-  font-style: normal;
-  font-size: 17px;
-  display: grid;
-  place-items: center;
-  box-shadow: 0 0 0 2.5px var(--red);
-}
-.gs-setcard__foot {
-  width: 100%;
-  padding: 0 22px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-.gs-setcard__names {
-  font-size: 21px;
-}
-.gs-setcard__odds {
-  font-family: var(--font-text);
-  font-size: 15px;
-  font-weight: 700;
-  opacity: 0.75;
 }
 .gs-sets__bar {
   margin-top: 22px;
@@ -1024,46 +873,6 @@
   box-shadow: 0 1px 0 var(--red-deep);
 }
 
-.gs-pending {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  background: rgba(214, 226, 243, 0.82);
-  border-radius: 4px;
-}
-.gs-pending__card {
-  position: relative;
-  width: 620px;
-  padding: 40px 48px 40px;
-  text-align: center;
-  border-radius: 4px;
-  box-shadow: 0 20px 44px rgba(34, 52, 92, 0.3);
-  transform: rotate(-1deg);
-}
-.gs-pending__star {
-  left: -20px;
-  top: -20px;
-  transform: rotate(-14deg);
-}
-.gs-pending__card h2 {
-  font-size: 70px;
-}
-.gs-pending__card p {
-  font-family: var(--font-text);
-  margin: 16px 0 26px;
-  font-size: 23px;
-  font-weight: 700;
-  line-height: 1.4;
-}
-.gs-pending__back {
-  padding: 10px 24px 12px;
-  border: 2.5px solid var(--red);
-  border-radius: 999px;
-  font-size: 19px;
-  font-weight: 800;
-}
-
 /* ---------- Retake ---------- */
 .gs-select__cell {
   position: relative;
@@ -1149,168 +958,6 @@
 .gs-prompt__same {
   opacity: 0.7;
 }
-/* "Which one?" after a retake: takes the whole screen so both photos are big enough to judge. */
-.gs-compare {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  display: grid;
-  place-items: center;
-  background: rgba(214, 226, 243, 0.86);
-  animation: gs-fade-in 0.2s ease-out both;
-}
-.gs-compare__sheet {
-  position: relative;
-  width: 1232px;
-  margin-top: -18px;
-  padding: 34px 36px 56px;
-  border-radius: 4px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  box-shadow: 0 22px 48px rgba(34, 52, 92, 0.32);
-}
-.gs-compare__star {
-  left: -18px;
-  top: -18px;
-  transform: rotate(-14deg);
-}
-.gs-compare h2.gs-compare__title {
-  font-size: 70px;
-}
-.gs-compare__sub {
-  margin-top: 10px;
-  font-family: var(--font-text);
-  font-size: 24px;
-  font-weight: 800;
-}
-.gs-compare__pair {
-  position: relative;
-  margin-top: 34px;
-  display: flex;
-  align-items: flex-start;
-  gap: 56px;
-}
-.gs-compare__pick {
-  width: 552px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24px;
-  transition: transform 0.12s ease;
-}
-.gs-compare__pick:active {
-  transform: scale(0.98);
-}
-.gs-compare__photo {
-  position: relative;
-  display: block;
-  width: 100%;
-}
-.gs-compare__photo img {
-  display: block;
-  width: 100%;
-  aspect-ratio: 3 / 2;
-  object-fit: cover;
-  border-radius: 8px;
-}
-.gs-compare__pick.is-old .gs-compare__photo img {
-  box-shadow:
-    0 0 0 6px var(--cream),
-    0 0 0 8px var(--tan-deep),
-    0 10px 22px rgba(58, 42, 38, 0.22);
-}
-.gs-compare__pick.is-new .gs-compare__photo img {
-  box-shadow:
-    0 0 0 6px var(--cream),
-    0 0 0 11px var(--red),
-    0 14px 28px rgba(158, 42, 43, 0.32);
-}
-.gs-compare__pick.is-old {
-  transform: rotate(-1.2deg);
-}
-.gs-compare__pick.is-new {
-  transform: rotate(1deg);
-}
-.gs-compare__badge {
-  position: absolute;
-  top: -18px;
-  font-size: 24px;
-  z-index: 1;
-}
-.gs-compare__pick.is-old .gs-compare__badge {
-  left: -14px;
-  padding: 6px 16px 8px;
-  color: var(--red);
-  transform: rotate(-6deg);
-}
-.gs-compare__pick.is-new .gs-compare__badge {
-  right: -14px;
-  transform: rotate(5deg);
-}
-.gs-compare__btn {
-  font-family: var(--font-chunky);
-  font-size: 34px;
-  line-height: 1;
-  padding: 16px 34px 18px;
-  border-radius: 999px;
-}
-.gs-compare__pick.is-old .gs-compare__btn {
-  color: var(--red);
-  box-shadow: inset 0 0 0 3.5px var(--red);
-}
-.gs-compare__pick.is-new .gs-compare__btn {
-  border-radius: 6px;
-  padding: 18px 38px 20px;
-  box-shadow: 0 5px 0 var(--red-deep);
-}
-
-/* ---------- BINUS × Academic Integrity (no gacha) ---------- */
-.gs-sets__cards:has(> li:nth-child(3)) {
-  gap: 30px;
-  padding: 0 6px;
-}
-.gs-setcard--fixed {
-  color: var(--cream);
-  background-image: var(--grain), radial-gradient(rgba(255, 255, 255, 0.16) 2px, transparent 2.5px);
-}
-.gs-setcard__collab {
-  position: absolute;
-  top: -12px;
-  right: -10px;
-  z-index: 3;
-  padding: 6px 12px 8px;
-  font-size: 19px;
-  color: var(--red);
-  transform: rotate(6deg);
-}
-.gs-setcard--fixed.is-on .gs-setcard__collab {
-  display: none;
-}
-.gs-setcard__brand {
-  margin-top: 30px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1;
-  text-align: center;
-}
-.gs-setcard__brand b {
-  font-weight: 400;
-  font-size: 22px;
-  opacity: 0.9;
-}
-.gs-setcard__brand span {
-  margin-top: 4px;
-  font-size: 29px;
-}
-.gs-setcard__layouts {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 18px;
-}
 .gs-layout {
   position: relative;
   display: flex;
@@ -1363,72 +1010,61 @@
   width: 42px;
   height: 42px;
 }
-.gs-setcard__foot--fixed {
-  justify-content: center;
-  font-family: var(--font-text);
-  font-size: 16px;
-  font-weight: 800;
-  opacity: 0.9;
-}
 
-/* "Your frame" instead of the gacha capsule. */
-.gs-moment__row {
+/* ---------- Frame picker: the guest taps one of the frames, no gacha ---------- */
+.gs-frames__list {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-auto-flow: column; /* one column per frame, however many there are */
+  grid-auto-columns: 1fr;
+  gap: 18px;
+  padding: 6px 20px 14px;
+}
+.gs-frames__list > li {
+  min-height: 0;
   display: flex;
-  align-items: center;
-  gap: 64px;
-  margin-top: -50px;
-  animation: gs-prize 0.6s cubic-bezier(0.2, 1.3, 0.4, 1) 0.15s both;
+  justify-content: center;
 }
-.gs-moment__sheet {
-  position: relative;
-  transform: rotate(-4deg);
-  filter: drop-shadow(0 18px 28px rgba(34, 52, 92, 0.38));
+.gs-frames__list > li:nth-child(odd) .gs-frames__pick {
+  transform: rotate(-1.5deg);
 }
-.gs-moment__sheet img {
-  display: block;
-  width: 300px;
-  height: 450px;
-  border-radius: 3px;
+.gs-frames__list > li:nth-child(even) .gs-frames__pick {
+  transform: rotate(1.5deg);
 }
-.gs-moment__tape {
-  top: -14px;
-  left: 50%;
-  width: 120px;
-  height: 34px;
-  transform: translateX(-50%) rotate(-4deg);
-  z-index: 1;
+.gs-frames__list .gs-frames__pick {
+  height: 100%;
+  min-height: 0;
+  color: var(--red);
 }
-.gs-moment__text p.sticker {
-  font-size: 66px;
+.gs-frames__list .gs-frames__pick.is-on {
+  transform: translateY(-4px) scale(1.04);
 }
-.gs-moment__name {
-  margin-top: 14px;
-  font-size: 76px;
-  line-height: 1.02;
-  --stroke: 0.13em;
+.gs-frames__pick img {
+  flex: 1 1 0;
+  min-height: 0;
+  width: auto;
+  height: auto;
+  aspect-ratio: 1 / 3; /* the strip thumbnails are 200 × 600 */
+  object-fit: cover;
+  box-shadow:
+    0 0 0 2.5px rgba(58, 42, 38, 0.18),
+    0 8px 16px rgba(34, 52, 92, 0.22);
 }
-.gs-moment__count {
-  margin-top: 26px;
-  font-size: 32px;
-  transform: rotate(-2deg);
+.gs-frames__pick.is-on img {
+  box-shadow:
+    0 0 0 5px var(--red),
+    0 12px 22px rgba(34, 52, 92, 0.35);
 }
-.gs-moment__status {
-  animation-delay: 0.7s;
+.gs-frames__pick .gs-layout__label {
+  box-shadow: inset 0 0 0 2.5px var(--red);
+}
+.gs-frames__pick.is-on .gs-layout__label {
+  background: var(--red);
+  color: var(--cream);
 }
 
-/* Result: the whole BINUS sheet next to the card. */
-.gs-result--sheet .gs-result__strip {
-  left: 54px;
-  top: 64px;
-}
-.gs-result--sheet .gs-result__strip img {
-  height: 660px;
-}
-.gs-result--sheet .gs-result__card {
-  left: 560px;
-}
-
-/* ---------- Gacha reveal ---------- */
+/* ---------- Getting-ready screen ---------- */
 .gs-reveal {
   position: absolute;
   inset: 0;
@@ -1445,77 +1081,8 @@
   bottom: 70px;
   transform: rotate(14deg);
 }
-.gs-reveal__rolling {
-  position: absolute;
-  top: 70px;
-  font-size: 96px;
-  animation: gs-fade-out 0.3s ease-in 1.6s forwards;
-}
-.gs-capsule {
-  position: absolute;
-  width: 250px;
-  height: 250px;
-  animation:
-    gs-capsule-drop 0.55s cubic-bezier(0.3, 1.4, 0.5, 1) both,
-    gs-shake 0.9s ease-in-out 0.65s;
-}
-.gs-capsule__top,
-.gs-capsule__bottom {
-  position: absolute;
-  left: 0;
-  width: 250px;
-  height: 125px;
-  border: 8px solid var(--red-deep);
-}
-.gs-capsule__top {
-  top: 0;
-  border-bottom-width: 4px;
-  border-radius: 125px 125px 0 0;
-  background: var(--red);
-  animation: gs-split-up 0.55s ease-in 1.6s forwards;
-}
-.gs-capsule__top::after {
-  content: '';
-  position: absolute;
-  left: 46px;
-  top: 26px;
-  width: 54px;
-  height: 26px;
-  border-radius: 50%;
-  background: rgba(239, 232, 223, 0.55);
-  transform: rotate(-24deg);
-}
-.gs-capsule__bottom {
-  bottom: 0;
-  border-top-width: 4px;
-  border-radius: 0 0 125px 125px;
-  background-color: var(--cream);
-  background-image: var(--grain);
-  animation: gs-split-down 0.55s ease-in 1.6s forwards;
-}
-.gs-reveal__prize {
-  display: flex;
-  align-items: center;
-  gap: 70px;
-  opacity: 0;
-  animation: gs-prize 0.6s cubic-bezier(0.2, 1.3, 0.4, 1) 1.95s forwards;
-}
-.gs-reveal__text p {
-  font-size: 66px;
-}
-.gs-reveal__text p.gs-reveal__set {
-  margin-top: 18px;
-  font-size: 30px;
-  transform: rotate(-2deg);
-}
-.gs-reveal__name {
-  margin-top: -16px;
-  font-size: 128px;
-  --stroke: 0.12em;
-}
 .gs-reveal__status {
-  position: absolute;
-  bottom: 56px;
+  position: relative;
   padding: 16px 34px 18px;
   border-radius: 4px;
   font-family: var(--font-chunky);
@@ -1526,441 +1093,50 @@
   box-shadow: 0 8px 18px rgba(34, 52, 92, 0.25);
   transform: rotate(-1deg);
   opacity: 0;
-  animation: gs-fade-in 0.4s ease-out 2.6s forwards;
+  animation: gs-fade-in 0.4s ease-out forwards;
 }
-@keyframes gs-capsule-drop {
-  from {
-    transform: translateY(-560px);
-  }
-}
-@keyframes gs-shake {
-  0%,
-  100% {
-    transform: rotate(0);
-  }
-  20% {
-    transform: rotate(-10deg);
-  }
-  40% {
-    transform: rotate(9deg);
-  }
-  60% {
-    transform: rotate(-7deg);
-  }
-  80% {
-    transform: rotate(5deg);
-  }
-}
-@keyframes gs-split-up {
-  to {
-    transform: translate(-80px, -280px) rotate(-35deg);
-    opacity: 0;
-  }
-}
-@keyframes gs-split-down {
-  to {
-    transform: translate(80px, 280px) rotate(25deg);
-    opacity: 0;
-  }
-}
-@keyframes gs-prize {
-  from {
-    opacity: 0;
-    transform: scale(0.3);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
+
 @keyframes gs-fade-in {
   to {
     opacity: 1;
   }
 }
-@keyframes gs-fade-out {
-  to {
-    opacity: 0;
-  }
-}
 
-/* ---------- Book keychain offer ---------- */
-.gs-offer {
-  position: absolute;
-  inset: 0;
-}
-.gs-offer__s1 {
-  left: 40px;
-  top: 600px;
-  transform: rotate(-12deg);
-}
-.gs-offer__s2 {
-  left: 560px;
-  top: 40px;
-  transform: rotate(14deg);
-}
-.gs-offer__s3 {
-  right: 40px;
-  bottom: 40px;
-  transform: rotate(-8deg);
-}
-
-/* The key ring art: drops in, then dangles. */
-.gs-kc {
-  position: absolute;
-  left: 20px;
-  top: 40px;
-  width: 500px;
-  height: 720px;
-}
-.gs-kc__swing {
-  position: absolute;
-  inset: 0;
-  transform-origin: 152px 78px; /* the ring */
-  animation:
-    gs-kc-drop 0.8s cubic-bezier(0.25, 1.4, 0.45, 1) both,
-    gs-kc-dangle 3.6s ease-in-out 0.8s infinite;
-}
-@keyframes gs-kc-drop {
-  from {
-    transform: translateY(-110%) rotate(8deg);
-  }
-  to {
-    transform: none;
-  }
-}
-@keyframes gs-kc-dangle {
-  0%,
-  100% {
-    transform: rotate(0deg);
-  }
-  50% {
-    transform: rotate(-2.2deg);
-  }
-}
-.gs-kc__ring {
-  position: absolute;
-  left: 92px;
-  top: 18px;
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  border: 11px solid #c9c4bb;
-  box-shadow:
-    inset 0 0 0 2px rgba(255, 255, 255, 0.7),
-    0 0 0 2px rgba(90, 80, 70, 0.25),
-    0 8px 14px rgba(34, 52, 92, 0.25);
-}
-.gs-kc__ring::after {
-  content: '';
-  position: absolute;
-  right: -14px;
-  top: 40px;
-  width: 16px;
-  height: 6px;
-  border-radius: 3px;
-  background: #b2aca2;
-  transform: rotate(60deg);
-}
-.gs-kc__chain {
-  position: absolute;
-  left: 132px;
-  top: 128px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.gs-kc__chain i {
-  display: block;
-  width: 18px;
-  height: 30px;
-  margin-top: -6px;
-  border-radius: 10px;
-  border: 5px solid #bdb7ad;
-  box-shadow: 0 2px 3px rgba(34, 52, 92, 0.2);
-}
-.gs-kc__chain i:nth-child(2) {
-  width: 12px;
-  border-color: #cfc9bf;
-}
-.gs-kc__book {
-  position: absolute;
-  left: 100px;
-  top: 196px;
-  width: 330px;
-  height: 430px;
-  transform: rotate(-7deg);
-  transform-origin: 40px 20px;
-}
-.gs-kc__pages {
-  position: absolute;
-  left: 14px;
-  top: 12px;
-  right: -12px;
-  bottom: -12px;
-  border-radius: 4px 12px 12px 4px;
-  background: repeating-linear-gradient(90deg, #f8f4ec 0 3px, #e6dccb 3px 4px);
-  box-shadow: 0 22px 40px rgba(34, 52, 92, 0.35);
-}
-.gs-kc__cover {
-  position: absolute;
-  inset: 0;
-  border-radius: 6px 14px 14px 6px;
-  padding: 54px 34px 0 52px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  box-shadow:
-    inset 30px 0 0 var(--red),
-    inset 34px 0 0 rgba(0, 0, 0, 0.12),
-    0 2px 0 rgba(255, 255, 255, 0.5) inset;
-}
-.gs-kc__eyelet {
-  position: absolute;
-  left: 40px;
-  top: 16px;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.55);
-  box-shadow:
-    0 0 0 5px #c9c4bb,
-    inset 0 2px 3px rgba(0, 0, 0, 0.35);
-}
-.gs-kc__photo {
-  display: block;
-  padding: 9px;
-  background: #fff;
-  box-shadow: 0 6px 12px rgba(58, 42, 38, 0.25);
-  transform: rotate(2deg);
-}
-.gs-kc__photo > * {
-  display: block;
-  width: 236px;
-  height: 170px;
-  object-fit: cover;
-}
-.gs-kc__sign {
-  margin-top: 22px;
-  display: flex;
-  flex-direction: column;
-  font-family: var(--font-script);
-  line-height: 1;
-  color: var(--red);
-  transform: rotate(-4deg);
-}
-.gs-kc__with {
-  font-size: 28px;
-}
-.gs-kc__title {
-  margin: 0 0 0 34px; /* stepped right, like "with love, / Dearly" on the frames */
-  font-size: 62px;
-}
-.gs-kc__loose {
-  position: absolute;
-  display: block;
-  padding: 7px;
-  background: #fff;
-  box-shadow: 0 10px 18px rgba(34, 52, 92, 0.3);
-}
-.gs-kc__loose > * {
-  display: block;
-  width: 170px;
-  height: 122px;
-  object-fit: cover;
-}
-.gs-kc__loose--1 {
-  left: 352px;
-  top: 240px;
-  transform: rotate(13deg);
-}
-.gs-kc__loose--2 {
-  left: 346px;
-  top: 420px;
-  transform: rotate(-7deg);
-}
-.gs-kc__price {
-  position: absolute;
-  left: 302px;
-  top: 548px;
-  width: 190px;
-  height: 190px;
-  display: grid;
-  place-items: center;
-  z-index: 2;
-  animation:
-    gs-kc-pop 0.55s cubic-bezier(0.2, 1.6, 0.4, 1) 0.65s both,
-    gs-kc-throb 1.6s ease-in-out 1.4s infinite;
-}
-@keyframes gs-kc-pop {
-  from {
-    transform: scale(0) rotate(-40deg);
-  }
-  to {
-    transform: scale(1) rotate(-10deg);
-  }
-}
-@keyframes gs-kc-throb {
-  0%,
-  100% {
-    transform: scale(1) rotate(-10deg);
-  }
-  50% {
-    transform: scale(1.07) rotate(-6deg);
-  }
-}
-.gs .gs-kc__burst {
-  position: absolute;
-  inset: 0;
-  color: var(--red);
-}
-.gs-kc__price-text {
-  position: relative;
-  font-size: 50px;
-  --stroke: 0.14em;
-}
-
-/* The offer card. */
-.gs-offer__card {
-  left: 600px;
-  top: 56px;
-  right: 60px;
-  bottom: 56px;
-  padding: 40px 50px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  animation: gs-offer-in 0.5s cubic-bezier(0.2, 1.2, 0.4, 1) 0.15s both;
-}
-@keyframes gs-offer-in {
-  from {
-    opacity: 0;
-    transform: translateX(60px) rotate(2deg);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-.gs-offer__kicker {
-  margin: -4px 0 6px 0;
-  font-family: var(--font-chunky);
-  font-weight: 400;
-  font-size: 36px;
-  line-height: 1;
-  color: var(--red);
-}
-.gs-offer__title {
-  font-size: 60px;
-  line-height: 1.1;
-  text-align: left;
-  white-space: nowrap;
-}
-.gs-offer__lede {
-  margin-top: 18px;
-  max-width: 520px;
-  font-family: var(--font-text);
-  font-size: 23px;
-  font-weight: 700;
-  line-height: 1.38;
-}
-.gs-offer__lede b {
-  font-weight: 900;
-}
-.gs-offer__thumbs {
-  margin-top: 22px;
-  width: 100%;
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 6px;
-}
-.gs-offer__thumbs span {
-  display: block;
-  aspect-ratio: 3 / 2;
-  border: 3px solid #fff;
-  box-shadow: 0 3px 6px rgba(58, 42, 38, 0.2);
-  transform: rotate(-2deg);
-}
-.gs-offer__thumbs span:nth-child(even) {
-  transform: rotate(2deg) translateY(3px);
-}
-.gs-offer__thumbs span > * {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.gs-offer__left {
-  font-family: var(--font-text);
-  font-size: 22px;
-  font-weight: 800;
-  line-height: 1.2;
-  text-align: center;
-}
-.gs-offer__actions {
-  margin-top: 28px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 18px;
-}
-.gs-offer__buy {
-  width: 100%;
-  display: flex;
-  gap: 18px;
-}
-.gs-offer__yes {
-  flex: 1;
-  font-size: 34px;
-  text-align: center;
-  padding: 0.4em 0.5em 0.46em;
-  transform: rotate(-2deg);
-}
-.gs-offer__yes--deal {
-  transform: rotate(1.5deg);
-}
-.gs-offer__yes small {
-  display: block;
-  margin-top: 2px;
-  font-size: 0.45em;
-  opacity: 0.9;
-}
-@media (prefers-reduced-motion: reduce) {
-  .gs-kc__swing,
-  .gs-kc__price,
-  .gs-offer__card {
-    animation: none;
-  }
-  .gs-kc__price {
-    transform: rotate(-10deg);
-  }
-}
-
-/* Countdown pill, centred in the bottom margin of the pick, book and result screens. */
+/* Round countdown, top right corner of every screen that times out. */
 .gs-clock {
   position: absolute;
-  left: 50%;
-  bottom: 5px;
-  transform: translateX(-50%);
-  z-index: 5;
-  padding: 3px 18px 4px;
-  border-radius: 999px;
+  top: 14px;
+  right: 18px;
+  z-index: 50;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   background: var(--cream);
   color: var(--red);
-  font-family: var(--font-text);
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 1.2;
-  white-space: nowrap;
-  box-shadow: 0 2px 0 var(--tan-deep);
+  border: 5px solid var(--red);
+  box-shadow: 0 4px 0 var(--tan-deep);
+  line-height: 1;
 }
 .gs-clock b {
   font-family: var(--font-chunky);
   font-weight: 400;
-  font-size: 22px;
-  margin-left: 2px;
+  font-size: 44px;
+}
+.gs-clock small {
+  font-family: var(--font-text);
+  font-weight: 800;
+  font-size: 15px;
+  margin-top: 2px;
+}
+.gs-clock.is-low {
+  background: var(--red);
+  color: var(--cream);
+  border-color: var(--red-deep);
+  box-shadow: 0 4px 0 var(--red-deep);
 }
 
 /* ---------- Result ---------- */
@@ -1981,19 +1157,6 @@
   height: 684px;
   width: auto;
 }
-/* Big print: the landscape sheet (two sets of 8 small photos) instead of a strip. */
-.gs-result--big .gs-result__strip {
-  left: 46px;
-  top: 214px;
-}
-.gs-result--big .gs-result__strip img {
-  width: 448px;
-  height: auto;
-}
-.gs-result--big .gs-result__card {
-  left: 520px;
-}
-
 /* Tape on opposite corners: top left and bottom right. The session code sits in the
    left margin, clear of both. */
 .gs-result__tape1,
@@ -2152,8 +1315,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .gs *,
-  .gs *::before,
-  .gs *::after {
+.gs *::before,
+.gs *::after {
     animation-duration: 0.01ms !important;
     animation-delay: 0ms !important;
   }
@@ -2170,19 +1333,4 @@
     opacity: 0.35;
     transform: scale(0.6) rotate(20deg);
   }
-}
-/* The display fonts draw "×" as a slashed circle; this one has a real multiplication sign. */
-.gs-x {
-  font-family: var(--font-text);
-  font-weight: 900;
-  -webkit-text-stroke: 0;
-}
-.gs-moment__name .gs-x {
-  -webkit-text-stroke: 0.08em var(--red);
-}
-.gs-result--sheet .gs-result__star {
-  top: auto;
-  bottom: -20px;
-  right: auto;
-  left: -40px;
 }

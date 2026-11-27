@@ -1,12 +1,9 @@
 import QRCode from 'qrcode';
 import { Camera } from '../booth/camera';
 import {
-  printForBig,
-  buildBigPrint,
   buildGif,
   buildSheet,
   buildStory,
-  buildGridSheet,
   buildStrip,
   ensureFonts,
   ensureFrameArt,
@@ -17,13 +14,14 @@ import {
 import type { DeckId } from '../booth/config';
 import { FRAMES, frameById, secureRandom, type FrameId, type FrameStyle } from '../booth/gacha';
 import { PreviewStream } from '../booth/preview-stream';
-import { BoothSession, type BookInput, type DeliverInput, type DeliverResult } from '../booth/session';
+import { BoothSession, type DeliverInput, type DeliverResult } from '../booth/session';
 import { hasCloud, loadSettings, saveSettings, type Settings } from '../booth/settings';
 import { galleryLink, photoPublicId, publicId, uploadUnsigned, type AssetKey } from '../shared/cloudinary';
 import { Link } from '../shared/link';
 import type { GuestIntent } from '../shared/link-protocol';
 import { generateSessionCode } from '../shared/session-code';
-import { IDLE_VIEW, sampleView, type GuestView, type Phase, type PrintPackage } from '../shared/view';
+import { zipBlob, type ZipEntry } from '../shared/zip';
+import { IDLE_VIEW, sampleView, type GuestView, type Phase } from '../shared/view';
 
 export type LogLevel = 'info' | 'ok' | 'err';
 export interface LogEntry {
@@ -36,7 +34,6 @@ export interface LogEntry {
 export interface LastResult {
   code: string;
   frame: FrameId;
-  pkg: PrintPackage;
   sheetUrl: string;
   gifUrl: string;
   link: string | null;
@@ -84,9 +81,7 @@ export class BoothController {
   private readonly listeners = new Set<() => void>();
   private snapshot: HostSnapshot;
   private logId = 0;
-  private lastSheet: { blob: Blob; code: string; pkg: PrintPackage; uncut: boolean } | null = null;
-  /** Photos of the last session, so the book file can be made again on request. */
-  private lastShots: BookInput<HTMLCanvasElement> | null = null;
+  private lastSheet: { blob: Blob; code: string } | null = null;
   private objectUrls: string[] = [];
   /** The newest session's code: an older session that finishes late must not take over the result panel. */
   private newestCode = '';
@@ -314,29 +309,9 @@ export class BoothController {
     this.session.handleIntent(intent, this.defaultDeck);
   }
 
-  /** Cashier confirmed payment for the big print (all photos on one sheet). */
-  approveUpgrade(): void {
-    void this.session.approveUpgrade();
-  }
-
-  /** Not paid / changed their mind: back to picking 4 photos. */
   /** One more retake for the guest on the tablet (e.g. the camera glitched). */
   grantRetake(): void {
     this.session.grantRetake();
-  }
-
-  declineUpgrade(): void {
-    this.session.declineUpgrade();
-  }
-
-  /** Builds the book file for the last session again (the guest tells the crew they want it). */
-  async redownloadBook(): Promise<void> {
-    if (!this.lastShots) return;
-    try {
-      await this.saveBook(this.lastShots);
-    } catch (err) {
-      this.log(`Gagal membuat file buku: ${err instanceof Error ? err.message : String(err)}`, 'err');
-    }
   }
 
   /** Shows a guest screen with sample data on the mirror and the tablet. */
@@ -355,7 +330,7 @@ export class BoothController {
 
   redownloadSheet(): void {
     if (this.lastSheet) {
-      download(this.lastSheet.blob, sheetFilename(this.lastSheet.code, this.lastSheet.pkg, this.lastSheet.uncut));
+      download(this.lastSheet.blob, sheetFilename(this.lastSheet.code));
     }
   }
 
@@ -366,50 +341,46 @@ export class BoothController {
     if (!(await ensureFrameArt(style))) this.log(`File frame ${style.art.sheet} tidak bisa dibuka — pakai warna polos`, 'err');
   }
 
-  /** Book keychain: the 16-photo landscape layout (8 photos × 2), turned for the printer. */
-  private async saveBook({ code, shots, frame }: BookInput<HTMLCanvasElement>): Promise<void> {
-    await Promise.all([ensureFonts(), this.loadArt(frameById(frame))]);
-    const info = { eventName: this.snapshot.settings.eventName, date: new Date() };
-    const blob = await toJpeg(printForBig(buildBigPrint(shots, info, frameById(frame))));
-    const name = `buku-${code}.jpg`;
-    download(blob, name);
-    this.log(`Download ${name} (gantungan kunci buku)`, 'ok');
+  /**
+   * Every session is saved on this Mac as ONE zip (dearly-KODE.zip: 8 single photos, print sheet,
+   * story and GIF), whatever the signal does. If building the sheets fails, the zip still gets the
+   * 8 originals.
+   */
+  private async deliver(input: DeliverInput<HTMLCanvasElement>): Promise<DeliverResult> {
+    const { code, shots } = input;
+    const files: ZipEntry[] = [];
+    try {
+      const singles = await Promise.all(shots.map(async (shot) => new Uint8Array(await (await toJpeg(shot)).arrayBuffer())));
+      singles.forEach((data, i) => files.push({ name: `dearly-${code}/foto-${code}-${i + 1}.jpg`, data }));
+    } catch (err) {
+      this.log(`Foto satuan tidak bisa disiapkan untuk zip: ${err instanceof Error ? err.message : String(err)}`, 'err');
+    }
+    try {
+      return await this.deliverBuilt(input, files);
+    } catch (err) {
+      await this.saveZip(code, files);
+      throw err;
+    }
   }
 
-  private async deliver({
-    code,
-    shots,
-    chosen,
-    pkg,
-    frame,
-  }: DeliverInput<HTMLCanvasElement>): Promise<DeliverResult> {
+  private async deliverBuilt(
+    { code, shots, chosen, frame }: DeliverInput<HTMLCanvasElement>,
+    files: ZipEntry[],
+  ): Promise<DeliverResult> {
     const settings = this.snapshot.settings;
     const style = frameById(frame);
-    const info = { eventName: settings.eventName, date: new Date() };
+    const info = { date: new Date() };
+
     await Promise.all([ensureFonts(), this.loadArt(style)]);
 
-    // The big layout (16 small landscape cells, 8 photos × 2) is built for every guest: it is
-    // the digital "all photos" file, and for the big package also the print.
-    const big = buildBigPrint(shots, info, style);
-    // Printed: the strip with the 4 picks (twice), the BINUS sheet (one uncut 4R, each pick in
-    // both columns), or the big sheet turned for the printer. `shown` is the upright version
-    // for screens and the story.
+    // Printed: the strip with the 4 picks, twice on one sheet.
     const picks = chosen.map((i) => shots[i]);
-    const grid = pkg === 'big' || !style.grid ? null : buildGridSheet(picks, style);
-    const strip = pkg === 'big' || grid ? null : buildStrip(picks, info, style);
-    const print = grid ?? (strip ? buildSheet(strip) : printForBig(big));
-    const shown = grid ?? strip ?? big;
-
-    const [sheetBlob, storyBlob, allBlob] = await Promise.all([
-      toJpeg(print),
-      toJpeg(buildStory(shown)),
-      toJpeg(big),
-    ]);
+    const strip = buildStrip(picks, info, style);
+    const [sheetBlob, storyBlob] = await Promise.all([toJpeg(buildSheet(strip)), toJpeg(buildStory(strip))]);
     const gifBlob = buildGif(shots);
-    const stripThumb = stripThumbnail(shown, strip ? 300 : 460);
-    if (grid) this.log(`Sheet BINUS ${chosen.length} foto: cetak 4R utuh, JANGAN dipotong`, 'ok');
+    const stripThumb = stripThumbnail(strip, 300);
     const kb = (b: Blob) => `${Math.round(b.size / 1024)}KB`;
-    this.log(`Dibuat: sheet ${kb(sheetBlob)} · story ${kb(storyBlob)} · 8 foto ${kb(allBlob)} · gif ${kb(gifBlob)}`);
+    this.log(`Dibuat: sheet ${kb(sheetBlob)} · story ${kb(storyBlob)} · gif ${kb(gifBlob)}`);
 
     // A session that finishes after a newer one has started still prints, but must not take
     // over the "last result" panel or free the newer session's images.
@@ -419,28 +390,24 @@ export class BoothController {
       this.objectUrls.splice(0).forEach((u) => URL.revokeObjectURL(u));
       sheetUrl = this.objectUrl(sheetBlob);
       gifUrl = this.objectUrl(gifBlob);
-      this.lastSheet = { blob: sheetBlob, code, pkg, uncut: !!grid };
-      this.lastShots = { code, shots, frame };
-      this.patch({ lastResult: { code, frame, pkg, sheetUrl, gifUrl, link: null, qr: null } });
+      this.lastSheet = { blob: sheetBlob, code };
+      this.patch({ lastResult: { code, frame, sheetUrl, gifUrl, link: null, qr: null } });
     }
 
-    // The print sheet always lands on this Mac for the printer, on top of any cloud copy.
-    // Strip and big sheets are two identical halves, so both print with the same 2x6 cut;
-    // the BINUS sheet is one picture (its banner runs across both columns) and stays whole.
-    const sheetName = sheetFilename(code, pkg, !!grid);
-    download(sheetBlob, sheetName);
-    this.log(`Download ${sheetName}`, pkg === 'big' ? 'ok' : 'info');
-
+    // The print sheet is for the printer: two identical strips, printed with the 2x6 cut.
+    // The rest is saved here too, on top of any cloud copy.
     const jobs: [AssetKey, string, Blob, string][] = [
-      ['sheet', 'Sheet', sheetBlob, sheetName],
+      ['sheet', 'Sheet', sheetBlob, sheetFilename(code)],
       ['story', 'Story', storyBlob, `story-${code}.jpg`],
-      ['all', '8 foto', allBlob, `semua-${code}.jpg`],
       ['gif', 'GIF', gifBlob, `anim-${code}.gif`],
     ];
+    for (const [, , blob, filename] of jobs) {
+      files.push({ name: `dearly-${code}/${filename}`, data: new Uint8Array(await blob.arrayBuffer()) });
+    }
+    await this.saveZip(code, files);
 
     if (!hasCloud(settings)) {
-      this.log('Cloud belum diatur — story, 8 foto & GIF di-download lokal', 'err');
-      for (const [key, , blob, filename] of jobs) if (key !== 'sheet') download(blob, filename);
+      this.log('Cloud belum diatur — semua file hanya tersimpan lokal', 'err');
       return { link: null, stripThumb };
     }
 
@@ -464,14 +431,13 @@ export class BoothController {
     await photos;
     let allUploaded = true;
     outcomes.forEach((o, i) => {
-      const [key, label, blob, filename] = jobs[i];
+      const label = jobs[i][1];
       if (o.status === 'fulfilled') {
         this.log(`Upload ${label} berhasil`, 'ok');
         return;
       }
       allUploaded = false;
-      this.log(`Upload ${label} gagal — ${(o.reason as Error).message}`, 'err');
-      if (key !== 'sheet') download(blob, filename);
+      this.log(`Upload ${label} gagal — ${(o.reason as Error).message} (file sudah tersimpan lokal)`, 'err');
     });
     if (!allUploaded) return { link: null, stripThumb };
 
@@ -487,8 +453,24 @@ export class BoothController {
       return { link: null, stripThumb };
     }
     const qr = await QRCode.toDataURL(link, { margin: 1, width: 360 });
-    if (code === this.newestCode) this.patch({ lastResult: { code, frame, pkg, sheetUrl, gifUrl, link, qr } });
+    if (code === this.newestCode) this.patch({ lastResult: { code, frame, sheetUrl, gifUrl, link, qr } });
     return { link, stripThumb };
+  }
+
+  /** Sessions whose zip is already saved, so a late failure doesn't save it twice. */
+  private readonly zipped = new Set<string>();
+
+  /** One zip per session in this Mac's Downloads folder. */
+  private async saveZip(code: string, files: ZipEntry[]): Promise<void> {
+    if (!files.length || this.zipped.has(code)) return;
+    this.zipped.add(code);
+    try {
+      const blob = zipBlob(files);
+      download(blob, `dearly-${code}.zip`);
+      this.log(`Disimpan lokal: dearly-${code}.zip (${files.length} file, ${Math.round(blob.size / 1024)}KB)`, 'ok');
+    } catch (err) {
+      this.log(`Gagal menyimpan dearly-${code}.zip: ${err instanceof Error ? err.message : String(err)}`, 'err');
+    }
   }
 
   private objectUrl(blob: Blob): string {
@@ -498,10 +480,8 @@ export class BoothController {
   }
 }
 
-/** The big sheet gets its own name so it's easy to spot in Downloads. */
-function sheetFilename(code: string, pkg: PrintPackage, uncut = false): string {
-  if (pkg === 'big') return `sheet-${code}-besar.jpg`;
-  return uncut ? `sheet-${code}-binus-utuh.jpg` : `sheet-${code}.jpg`;
+function sheetFilename(code: string): string {
+  return `sheet-${code}.jpg`;
 }
 
 function download(blob: Blob, filename: string): void {

@@ -5,7 +5,7 @@ export const ASSETS = {
   sheet: { name: 'sheet', ext: 'jpg' },
   story: { name: 'story', ext: 'jpg' },
   gif: { name: 'anim', ext: 'gif' },
-  /** All 8 photos in the 16-cell book layout — every guest gets this digitally. */
+  /** Legacy 8-photo sheet: only sessions from before the single-photo uploads have it. */
   all: { name: 'all', ext: 'jpg' },
 } as const;
 

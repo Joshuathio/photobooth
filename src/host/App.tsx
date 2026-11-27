@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { BOOK_PRICE, DECKS, MEME_CAPTION, MEME_IMAGES, type DeckId } from '../booth/config';
-import { FRAMES, frameById, setById, type SetId } from '../booth/gacha';
+import { DECKS, MEME_CAPTION, MEME_IMAGES, type DeckId } from '../booth/config';
+import { FRAMES, frameById } from '../booth/gacha';
 import { hasCloud } from '../booth/settings';
 import { GuestScreen, STAGE_H, STAGE_W } from '../guest/GuestScreen';
 import { PHASE_LABELS, type GuestView, type Phase } from '../shared/view';
@@ -14,35 +14,24 @@ interface PanelProps {
   ctl: BoothController;
 }
 
-/** "Set A", or "BINUS · 3 foto" for the set without gacha. */
-function setText(v: { set: SetId | null; pickCount: number }): string {
-  if (!v.set) return '';
-  return setById(v.set).fixed ? `BINUS · ${v.pickCount} foto` : setById(v.set).label;
-}
-
-const PREVIEW_PHASES: Phase[] = ['idle', 'set', 'deck', 'capturing', 'select', 'reveal', 'offer', 'result'];
+const PREVIEW_PHASES: Phase[] = ['idle', 'frame', 'deck', 'capturing', 'select', 'reveal', 'result'];
 
 function phaseText(v: GuestView): string {
   switch (v.phase) {
     case 'idle':
       return 'Siap — menunggu tamu';
-    case 'set':
-      return v.set ? `Tamu sedang pilih set (${setText(v)})` : 'Tamu sedang pilih set frame';
+    case 'frame':
+      return v.frame ? `Tamu sedang pilih frame (${frameById(v.frame).name})` : 'Tamu sedang pilih frame';
     case 'deck':
-      return `Tamu sedang pilih gaya${v.set ? ` · ${setText(v)}` : ''}`;
+      return `Tamu sedang pilih gaya${v.frame ? ` · ${frameById(v.frame).name}` : ''}`;
     case 'capturing':
       return v.retakeOf !== null
         ? `Ulang foto ${v.retakeOf + 1} · sisa ulang ${v.retakesLeft}`
         : `Foto ${Math.min(v.shot + 1, v.totalShots)}/${v.totalShots}${v.deck ? ` · ${DECKS[v.deck].label}` : ''}`;
     case 'select':
-      if (v.upgradePending) return 'Tamu minta versi besar — konfirmasi bayar';
-      if (v.compare) return `Tamu pilih foto ${v.compare.index + 1} lama atau baru`;
       return `Tamu memilih foto (${v.selected.length}/${v.pickCount}) · sisa ulang ${v.retakesLeft}`;
     case 'reveal':
-      if (v.set && setById(v.set).fixed) return v.busy ? 'Frame BINUS + menyiapkan foto…' : 'Frame BINUS';
-      return v.busy ? 'Gacha + menyiapkan foto…' : 'Gacha';
-    case 'offer':
-      return `Info gantungan kunci buku (${BOOK_PRICE})`;
+      return v.busy ? 'Menyiapkan foto…' : 'Hampir selesai';
     case 'result':
       return `Hasil · ${v.code ?? ''}`;
   }
@@ -189,13 +178,7 @@ function ResultPanel({ s, ctl }: PanelProps) {
           <div className="result__info">
             <div className="result__chips">
               <FrameChip id={r.frame} />
-              <span className={`pkg-chip ${r.pkg === 'big' ? 'is-big' : ''}`}>
-                {r.pkg === 'big'
-                  ? 'Besar · 8 foto kecil × 2'
-                  : frameById(r.frame).grid
-                    ? `BINUS · ${frameById(r.frame).photos ?? 4} foto · jangan dipotong`
-                    : 'Strip · 4 foto'}
-              </span>
+              <span className="pkg-chip">Strip · 4 foto</span>
             </div>
             {r.qr ? (
               <img className="result__qr" src={r.qr} alt="QR code galeri" />
@@ -205,9 +188,6 @@ function ResultPanel({ s, ctl }: PanelProps) {
             <div className="result__actions">
               <button type="button" className="btn btn--small" onClick={() => ctl.redownloadSheet()}>
                 Download ulang sheet
-              </button>
-              <button type="button" className="btn btn--small" onClick={() => void ctl.redownloadBook()}>
-                Download file buku
               </button>
               {r.link && (
                 <a className="btn btn--small btn--ghost" href={r.link} target="_blank" rel="noopener">
@@ -226,14 +206,14 @@ function FrameChip({ id }: { id: (typeof FRAMES)[number]['id'] }) {
   const f = frameById(id);
   return (
     <span className="frame-chip" style={{ background: f.bg, color: f.outline ?? f.ink }}>
-      {setById(f.set).label} · {f.name}
+      {f.name}
     </span>
   );
 }
 
 /* ---------- Status bar ---------- */
 function StatusBar({ s, ctl, onOpen }: PanelProps & { onOpen(d: Drawer): void }) {
-  const canStart = s.cameraReady && ['idle', 'set', 'deck'].includes(s.live.phase);
+  const canStart = s.cameraReady && ['idle', 'frame', 'deck'].includes(s.live.phase);
   const errors = s.log.filter((e) => e.level === 'err').length;
   return (
     <footer className="bar">
@@ -269,18 +249,6 @@ function StatusBar({ s, ctl, onOpen }: PanelProps & { onOpen(d: Drawer): void })
           +1 ulang ({s.live.retakesLeft})
         </button>
       )}
-      {s.live.phase === 'select' && (
-        <div className={`bar__upgrade ${s.live.upgradePending ? 'is-pending' : ''}`}>
-          <button type="button" className="btn btn--primary" onClick={() => ctl.approveUpgrade()}>
-            {s.live.upgradePending ? 'Sudah bayar, cetak versi besar' : 'Upgrade ke versi besar'}
-          </button>
-          {s.live.upgradePending && (
-            <button type="button" className="btn" onClick={() => ctl.declineUpgrade()}>
-              Batal upgrade
-            </button>
-          )}
-        </div>
-      )}
       <label className="bar__deck">
         <span>Gaya default</span>
         <select value={s.settings.deck} onChange={(e) => ctl.updateSettings({ deck: e.target.value as DeckId })}>
@@ -293,7 +261,7 @@ function StatusBar({ s, ctl, onOpen }: PanelProps & { onOpen(d: Drawer): void })
       </label>
       <div className="bar__actions">
         <button type="button" className="btn btn--primary" disabled={!canStart} onClick={() => ctl.start()}>
-          {s.live.phase === 'deck' ? 'Foto pakai gaya default' : s.live.phase === 'set' ? 'Lanjut ke gaya' : 'Mulai'}{' '}
+          {s.live.phase === 'deck' ? 'Foto pakai gaya default' : s.live.phase === 'frame' ? 'Lanjut ke gaya' : 'Mulai'}{' '}
           <kbd>Space</kbd>
         </button>
         <button type="button" className="btn" disabled={s.live.phase === 'idle'} onClick={() => ctl.reset()}>
@@ -351,13 +319,6 @@ function SettingsForm({ s, ctl }: PanelProps) {
           iPhone: pasang dekat Mac, terkunci dan landscape, login Apple ID yang sama. Muncul sebagai “iPhone
           Camera”.
         </p>
-      </section>
-
-      <section>
-        <h3>Strip</h3>
-        <Field label="Nama event (dicetak di strip)">
-          <input value={s.settings.eventName} onChange={(e) => set({ eventName: e.target.value })} />
-        </Field>
       </section>
 
       <section>

@@ -19,21 +19,6 @@ export const STRIP_SHOTS = 4;
 export const FOOTER_Y = MARGIN_TOP + STRIP_SHOTS * CELL_H + (STRIP_SHOTS - 1) * GAP; // 1514
 
 /**
- * Big print: 16 landscape cells of 3.5 × 2.55 cm (414 × 300 px), edge to edge.
- * It is laid out on a landscape 6x4" canvas (1800 × 1200) as two identical
- * halves, top and bottom: 4 columns × 2 rows of the 8 photos each, with the
- * logo and code in a narrow footer on the right. For printing the canvas is
- * turned 90°, so the printer's 2x6 cut runs between the two halves.
- */
-export const BIG_W = 1800;
-export const BIG_H = 1200;
-export const BIG_COLS = 4;
-export const BIG_ROWS = 2; // per half
-export const BIG_CELL_W = 414;
-export const BIG_CELL_H = 300;
-export const BIG_FOOTER_X = BIG_COLS * BIG_CELL_W; // 1656
-
-/**
  * Legacy digital "all photos" grid: 8 landscape photos, 2 columns × 4 rows. Not made any more,
  * but old sessions still have it, so the gallery cuts their photos out with these numbers.
  */
@@ -216,17 +201,8 @@ export const MEME_IMAGES: Readonly<Record<string, string>> = {
 
 /** Session timing beyond the capture loop. */
 export const DECK_TIMEOUT_MS = 60_000; // nobody picks a deck → back to the attract screen
-export const SELECT_TIMEOUT_MS = 60_000; // nobody picks → the first photos are used (also ends an unanswered upgrade request)
+export const SELECT_TIMEOUT_MS = 60_000; // nobody picks → the first photos are used
 /** Retakes per session from the select screen, each with the shot's own prompt. The operator can add more. */
-export const MAX_RETAKES = 3;
-/** After a retake the guest picks the old or the new photo; nobody taps → the new one is kept. */
-export const RETAKE_CHOOSE_MS = 10_000;
-/** Width of the two photos on the "Which one?" screen after a retake (they're shown ~550 px wide). */
-export const COMPARE_THUMB_W = 720;
-export const REVEAL_MS = 3_400; // minimum time the gacha reveal stays on screen
-export const OFFER_MS = 60_000; // book info screen: guests tap Next; this only frees the booth if they walk away
+export const MAX_RETAKES = 2;
+export const REVEAL_MS = 1_500; // minimum time the "getting your photos ready" screen stays up
 export const RESULT_MS = 90_000; // result + QR screen (the guest's only look at the session code), then back to attract
-
-/** Book keychain upsell: all 8 photos as a mini book on a key ring. */
-export const BOOK_PRICE = '15rb';
-export const BOOK_PRICE_TAG = '+15K';
